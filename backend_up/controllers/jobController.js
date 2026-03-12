@@ -93,6 +93,16 @@ const createJob = async (req, res) => {
   const io = getIo();
   io.to(`user:${req.user._id}`).emit('jobCreated', createdJob);
 
+  // Notify all admins about new job approval request
+  notificationService.notifyAdmins({
+    type: 'system',
+    title: 'New Job for Approval',
+    message: `A new job "${title}" was posted by ${req.user.name} and needs approval.`,
+    relatedId: createdJob._id,
+    relatedModel: 'Job',
+    actionUrl: `/admin/jobs`
+  });
+
   res.status(201).json(createdJob);
 };
 

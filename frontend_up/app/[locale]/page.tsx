@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Link } from '@/navigation';
 import { motion, Variants } from "framer-motion"
-import { ArrowRight, Briefcase, Users, Zap, Shield, Clock, TrendingUp, Menu, X, ArrowUpRight, Search, CheckCircle2, Star, Sparkles, Globe } from "lucide-react"
+import { ArrowRight, Briefcase, Users, Zap, Shield, Clock, TrendingUp, Menu, X, ArrowUpRight, Search, CheckCircle2, Star, Sparkles, Globe, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LanguageSwitcher from "@/components/LanguageSwitcher"
 import { useTranslations } from 'next-intl';
@@ -18,6 +18,15 @@ interface SiteStats {
   avgHireTime: string
   latestJobTitle: string
   latestApplicants: string
+}
+
+interface Testimonial {
+  _id: string;
+  author: string;
+  role: string;
+  quote: string;
+  rating: number;
+  image?: string;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
@@ -38,6 +47,9 @@ export default function LandingPage() {
     latestApplicants: '5+',
   })
 
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([])
+  const [loadingTestimonials, setLoadingTestimonials] = useState(true)
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -50,7 +62,24 @@ export default function LandingPage() {
         // Keep fallback values on error
       }
     }
+
+    const fetchTestimonials = async () => {
+      try {
+        setLoadingTestimonials(true)
+        const res = await fetch(`${API_BASE}/site/testimonials`)
+        if (res.ok) {
+          const data = await res.json()
+          setTestimonials(data)
+        }
+      } catch {
+        // Keep empty on error
+      } finally {
+        setLoadingTestimonials(false)
+      }
+    }
+
     fetchStats()
+    fetchTestimonials()
   }, [])
 
   const containerVariants: Variants = {
@@ -477,43 +506,148 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { id: "test1", color: "primary" },
-              { id: "test2", color: "accent" },
-              { id: "test3", color: "primary" },
-            ].map((test, idx) => (
+          <div className="relative overflow-hidden -mx-4 px-4 sm:mx-0 sm:px-0 group/marquee">
+            {/* Left & Right Gradient Overlays for smooth fading */}
+            <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+            <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+
+            {loadingTestimonials ? (
+              <div className="w-full flex justify-center py-20">
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+              </div>
+            ) : (
               <motion.div
-                key={idx}
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                whileHover={{ y: -5 }}
-                className="p-10 rounded-[2.5rem] bg-card border border-border/50 relative overflow-hidden group hover:border-primary/30 transition-all duration-500"
+                className="flex gap-8 w-fit"
+                animate={{
+                  x: [0, -1 * (testimonials.length > 0 ? (testimonials.length * 432) : (3 * 432))] // Estimate width + gap
+                }}
+                transition={{
+                  duration: testimonials.length > 0 ? (testimonials.length * 8) : 24,
+                  ease: "linear",
+                  repeat: Infinity
+                }}
+                style={{ cursor: 'grab' }}
+                whileHover={{ animationPlayState: 'paused' }}
               >
-                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                  <Star className={`w-24 h-24 ${test.color === 'primary' ? 'text-primary' : 'text-accent'}`} />
-                </div>
-                <div className="flex gap-1 mb-6">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-5 h-5 fill-primary text-primary" />
-                  ))}
-                </div>
-                <blockquote className="text-xl font-medium leading-relaxed mb-8 relative z-10 italic text-foreground/80">
-                  "{t(`testimonials.list.${test.id}.quote`)}"
-                </blockquote>
-                <div className="flex items-center gap-4 relative z-10">
-                  <div className={`w-12 h-12 rounded-full ${test.color === 'primary' ? 'bg-primary/20' : 'bg-accent/20'} flex items-center justify-center font-bold text-lg`}>
-                    {t(`testimonials.list.${test.id}.author`).charAt(0)}
+                {/* First set of testimonials */}
+                {(testimonials.length > 0 ? testimonials : [
+                  { _id: "test1", author: t('testimonials.list.test1.author'), role: t('testimonials.list.test1.role'), quote: t('testimonials.list.test1.quote'), rating: 5, color: "primary" },
+                  { _id: "test2", author: t('testimonials.list.test2.author'), role: t('testimonials.list.test2.role'), quote: t('testimonials.list.test2.quote'), rating: 5, color: "accent" },
+                  { _id: "test3", author: t('testimonials.list.test3.author'), role: t('testimonials.list.test3.role'), quote: t('testimonials.list.test3.quote'), rating: 5, color: "primary" }
+                ]).map((test: any, idx) => (
+                  <div
+                    key={`${test._id}-1`}
+                    className="min-w-[320px] sm:min-w-[400px] max-w-[400px] p-8 sm:p-10 rounded-[2.5rem] bg-card border border-border/50 relative overflow-hidden flex flex-col justify-between hover:border-primary/30 transition-colors duration-500"
+                  >
+                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                      <Star className={`w-24 h-24 ${(test.color === 'accent' || idx % 2 !== 0) ? 'text-accent' : 'text-primary'}`} />
+                    </div>
+                    <div>
+                      <div className="flex gap-1 mb-6">
+                        {[...Array(test.rating || 5)].map((_, i) => (
+                          <Star key={i} className="w-5 h-5 fill-primary text-primary" />
+                        ))}
+                      </div>
+                      <blockquote className="text-lg sm:text-xl font-medium leading-relaxed mb-8 relative z-10 italic text-foreground/80 line-clamp-6">
+                        "{test.quote}"
+                      </blockquote>
+                    </div>
+                    <div className="flex items-center gap-4 relative z-10 mt-auto">
+                      <div className={`w-12 h-12 rounded-full ${(test.color === 'accent' || idx % 2 !== 0) ? 'bg-accent/20' : 'bg-primary/20'} flex items-center justify-center font-bold text-lg overflow-hidden shrink-0`}>
+                        {test.image ? (
+                          <img src={test.image} alt={test.author} className="w-full h-full object-cover" />
+                        ) : (
+                          test.author.charAt(0)
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-foreground truncate">{test.author}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground font-medium truncate">{test.role}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-foreground">{t(`testimonials.list.${test.id}.author`)}</p>
-                    <p className="text-sm text-muted-foreground font-medium">{t(`testimonials.list.${test.id}.role`)}</p>
+                ))}
+
+                {/* Second set of testimonials for seamless loop */}
+                {(testimonials.length > 0 ? testimonials : [
+                  { _id: "test1", author: t('testimonials.list.test1.author'), role: t('testimonials.list.test1.role'), quote: t('testimonials.list.test1.quote'), rating: 5, color: "primary" },
+                  { _id: "test2", author: t('testimonials.list.test2.author'), role: t('testimonials.list.test2.role'), quote: t('testimonials.list.test2.quote'), rating: 5, color: "accent" },
+                  { _id: "test3", author: t('testimonials.list.test3.author'), role: t('testimonials.list.test3.role'), quote: t('testimonials.list.test3.quote'), rating: 5, color: "primary" }
+                ]).map((test: any, idx) => (
+                  <div
+                    key={`${test._id}-2`}
+                    className="min-w-[320px] sm:min-w-[400px] max-w-[400px] p-8 sm:p-10 rounded-[2.5rem] bg-card border border-border/50 relative overflow-hidden flex flex-col justify-between hover:border-primary/30 transition-colors duration-500"
+                  >
+                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                      <Star className={`w-24 h-24 ${(test.color === 'accent' || idx % 2 !== 0) ? 'text-accent' : 'text-primary'}`} />
+                    </div>
+                    <div>
+                      <div className="flex gap-1 mb-6">
+                        {[...Array(test.rating || 5)].map((_, i) => (
+                          <Star key={i} className="w-5 h-5 fill-primary text-primary" />
+                        ))}
+                      </div>
+                      <blockquote className="text-lg sm:text-xl font-medium leading-relaxed mb-8 relative z-10 italic text-foreground/80 line-clamp-6">
+                        "{test.quote}"
+                      </blockquote>
+                    </div>
+                    <div className="flex items-center gap-4 relative z-10 mt-auto">
+                      <div className={`w-12 h-12 rounded-full ${(test.color === 'accent' || idx % 2 !== 0) ? 'bg-accent/20' : 'bg-primary/20'} flex items-center justify-center font-bold text-lg overflow-hidden shrink-0`}>
+                        {test.image ? (
+                          <img src={test.image} alt={test.author} className="w-full h-full object-cover" />
+                        ) : (
+                          test.author.charAt(0)
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-foreground truncate">{test.author}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground font-medium truncate">{test.role}</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </motion.div>
-            ))}
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* App Banner Section */}
+      <section className="py-8 px-4 sm:px-6 lg:px-8 relative z-10 my-10">
+        <div className="max-w-5xl mx-auto relative group cursor-pointer" onClick={() => window.open('https://play.google.com/store/apps/details?id=com.shramikseva.app', '_blank')}>
+          {/* Animated Glow Effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/30 to-accent/30 rounded-3xl blur-xl opacity-20 group-hover:opacity-60 transition-opacity duration-500" />
+
+          <div className="relative flex flex-col sm:flex-row items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-card border border-border hover:border-primary/50 shadow-lg hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300">
+            <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex flex-shrink-0 items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-foreground mb-1 group-hover:bg-gradient-to-r group-hover:from-primary group-hover:to-accent group-hover:bg-clip-text group-hover:text-transparent transition-all duration-300">
+                  Get the Shramik Seva App
+                </h3>
+                <p className="text-muted-foreground font-medium">Available now on Android. Find jobs and hire faster.</p>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              className="h-16 px-8 rounded-2xl bg-background/50 hover:bg-background border-primary/20 hover:border-primary shadow-md flex items-center gap-4 transition-all group-hover:scale-105 active:scale-95 w-full sm:w-auto"
+            >
+              <div className="w-8 h-8 flex-shrink-0 filter drop-shadow-md">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.5 12.5L2.8 21.6c-.4.2-.8.2-1.2 0-.4-.2-.6-.6-.6-1V3.4c0-.4.2-.8.6-1 .4-.2.8-.2 1.2 0L17.5 11.5c.3.2.5.5.5.5s-.2.3-.5.5z" fill="#4CAF50" />
+                  <path d="M22.8 11.1L18.7 13.5l-4.5-4.5 4.5-4.5 4.1 2.4c.7.4 1.2 1.2 1.2 2.1 0 .9-.5 1.7-1.2 2.1z" fill="#FFC107" />
+                  <path d="M2.8 2.4L14.2 13.8 2.2 25.8 2.8 2.4z" fill="#F44336" />
+                  <path d="M2.2 -1.8L14.2 10.2 2.8 21.6 2.2 -1.8z" fill="#2196F3" />
+                </svg>
+              </div>
+              <div className="flex flex-col items-start justify-center text-left">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground group-hover:text-foreground transition-colors leading-none">Get it on</span>
+                <span className="text-base sm:text-xl font-black leading-tight text-foreground">Google Play</span>
+              </div>
+            </Button>
           </div>
         </div>
       </section>

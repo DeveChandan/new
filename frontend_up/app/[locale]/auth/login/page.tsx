@@ -58,8 +58,12 @@ export default function LoginPage() {
       setStep(2)
       setCountdown(300) // Start 5-minute timer
     } catch (err: any) {
-      console.error('Error sending OTP:', err)
-      toast.error(err.message || t('errors.failedOTP'))
+      if (err.status === 404 || err.message?.includes('not found') || err.message?.includes('register')) {
+        toast.error('Account not found. Please register first.')
+      } else {
+        console.error('Error sending OTP:', err)
+        toast.error(err.message || t('errors.failedOTP'))
+      }
     } finally {
       setLoading(false)
     }

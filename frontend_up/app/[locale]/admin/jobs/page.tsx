@@ -48,6 +48,8 @@ export default function AdminJobsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("") // Debounced: triggers fetch
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
   const [selectedWorkType, setSelectedWorkType] = useState<string>("all")
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalJobs, setTotalJobs] = useState(0)
@@ -71,6 +73,8 @@ export default function AdminJobsPage() {
         title: debouncedSearch || undefined,
         status: selectedStatus !== "all" ? selectedStatus : undefined,
         workType: selectedWorkType !== "all" ? selectedWorkType : undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
         page: currentPage,
         pageSize: pageSize,
       });
@@ -83,7 +87,7 @@ export default function AdminJobsPage() {
       setLoading(false);
       setIsInitialLoad(false);
     }
-  }, [debouncedSearch, selectedStatus, selectedWorkType, currentPage]);
+  }, [debouncedSearch, selectedStatus, selectedWorkType, startDate, endDate, currentPage]);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== "admin")) {
@@ -129,16 +133,13 @@ export default function AdminJobsPage() {
     }
   };
 
-  const applySearch = () => {
-    setDebouncedSearch(searchTitle)
-    setCurrentPage(1)
-  }
-
   const clearFilters = () => {
     setSearchTitle("")
     setDebouncedSearch("")
     setSelectedStatus("all")
     setSelectedWorkType("all")
+    setStartDate("")
+    setEndDate("")
     setCurrentPage(1)
   }
 
@@ -262,14 +263,14 @@ export default function AdminJobsPage() {
           </div>
 
           {/* Filter Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Status Filter */}
             <div className="space-y-1.5">
               <label className="text-xs md:text-sm font-medium flex items-center gap-2">
                 <Clock className="h-3 w-3 md:h-4 md:w-4" />
                 {t('status')}
               </label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <Select value={selectedStatus} onValueChange={(val) => { setSelectedStatus(val); setCurrentPage(1); }}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder={t('allStatuses')} />
                 </SelectTrigger>
@@ -289,7 +290,7 @@ export default function AdminJobsPage() {
                 <Briefcase className="h-3 w-3 md:h-4 md:w-4" />
                 {t('workType')}
               </label>
-              <Select value={selectedWorkType} onValueChange={setSelectedWorkType}>
+              <Select value={selectedWorkType} onValueChange={(val) => { setSelectedWorkType(val); setCurrentPage(1); }}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder={t('allTypes')} />
                 </SelectTrigger>
@@ -300,16 +301,45 @@ export default function AdminJobsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Start Date */}
+            <div className="space-y-1.5">
+              <label className="text-xs md:text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-3 w-3 md:h-4 md:w-4" />
+                {tCommon("labels.from")}
+              </label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => { setStartDate(e.target.value); setCurrentPage(1); }}
+                className="h-9"
+              />
+            </div>
+
+            {/* End Date */}
+            <div className="space-y-1.5">
+              <label className="text-xs md:text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-3 w-3 md:h-4 md:w-4" />
+                {tCommon("labels.to")}
+              </label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => { setEndDate(e.target.value); setCurrentPage(1); }}
+                className="h-9"
+              />
+            </div>
           </div>
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-2">
             <Button
-              onClick={applySearch}
+              variant="outline"
+              onClick={clearFilters}
               className="flex-1"
               size="sm"
             >
-              {t('apply')}
+              {tCommon('buttons.reset')}
             </Button>
             <Button
               variant="outline"

@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button'; // Import Button from UI components
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { apiClient } from '@/lib/api';
+import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "@/navigation";
 import {
   Search,
   User,
@@ -47,9 +49,12 @@ interface WorkerWithWorklogs {
 const AdminWorklogsPage = () => {
   const t = useTranslations('Admin.worklogs')
   const tCommon = useTranslations('Common')
+  const router = useRouter()
+  const { user, isLoading: authLoading } = useAuth()
   const [workers, setWorkers] = useState<WorkerWithWorklogs[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [error, setError] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -71,6 +76,7 @@ const AdminWorklogsPage = () => {
         console.error('Error fetching worklogs:', error);
       } finally {
         setLoading(false);
+        setIsInitialLoad(false);
       }
     };
 
@@ -126,7 +132,7 @@ const AdminWorklogsPage = () => {
     return statusColors[status] || 'bg-gray-300';
   };
 
-  if (loading && workers.length === 0) {
+  if (authLoading || (loading && isInitialLoad)) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -190,19 +196,17 @@ const AdminWorklogsPage = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Search Input */}
-          <div className="space-y-1.5">
-            <label className="text-xs md:text-sm font-medium flex items-center gap-2">
-              <User className="h-3 w-3 md:h-4 md:w-4" />
-              {t('searchWorker')}
+          <div className="flex-1 w-full space-y-1.5">
+            <label className="text-sm font-medium flex items-center gap-2">
+              {t('search')}
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-3 w-3 md:h-4 md:w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder={t('searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9"
+                className="pl-9 h-10"
               />
             </div>
           </div>

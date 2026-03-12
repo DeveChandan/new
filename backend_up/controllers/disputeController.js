@@ -27,19 +27,14 @@ const createDispute = async (req, res) => {
     });
 
     // Notify all admins
-    const admins = await User.find({ role: 'admin' });
-    for (const admin of admins) {
-      await notificationService.createAndSend({
-        userId: admin._id,
-        userRole: 'admin',
-        type: 'dispute_opened',
-        title: 'New Dispute Opened',
-        message: `A new dispute has been opened by ${req.user.name}.`,
-        relatedId: dispute._id,
-        relatedModel: 'Dispute',
-        actionUrl: `/admin/disputes`
-      });
-    }
+    await notificationService.notifyAdmins({
+      type: 'dispute_opened',
+      title: 'New Dispute Opened',
+      message: `A new dispute has been opened by ${req.user.name}.`,
+      relatedId: dispute._id,
+      relatedModel: 'Dispute',
+      actionUrl: `/admin/disputes`
+    });
 
     res.status(201).json(dispute);
   } catch (error) {

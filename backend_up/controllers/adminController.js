@@ -9,6 +9,7 @@ const WorkLog = require('../models/WorkLog');
 const Dispute = require('../models/Dispute');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const SupportMessage = require('../models/SupportMessage');
 const mongoose = require('mongoose');
 const dayjs = require('dayjs'); // Import dayjs
 
@@ -296,7 +297,7 @@ const getUsers = async (req, res) => {
 const getJobs = async (req, res) => {
   console.log('API Hit: getJobs', req.query);
   try {
-    const { title, status, workType, page = 1, pageSize = 10 } = req.query;
+    const { title, status, workType, startDate, endDate, page = 1, pageSize = 10 } = req.query;
     let query = {};
 
     if (title) {
@@ -307,6 +308,21 @@ const getJobs = async (req, res) => {
     }
     if (workType) {
       query.workType = workType;
+    }
+
+    let createdAtQuery = {};
+    if (startDate) {
+      const startOfDay = new Date(startDate);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+      createdAtQuery.$gte = startOfDay;
+    }
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+      createdAtQuery.$lte = endOfDay;
+    }
+    if (Object.keys(createdAtQuery).length > 0) {
+      query.createdAt = createdAtQuery;
     }
 
     const skip = (Number(page) - 1) * Number(pageSize);
@@ -1055,6 +1071,110 @@ const deleteWorklog = async (req, res) => {
   }
 };
 
+// --- Support Message Management ---
+
+/**
+ * GET /api/admin/support-messages
+ * Fetch all support messages with pagination and filtering
+ */
+const getSupportMessages = async (req, res) => {
+  console.log('API Hit: getSupportMessages', req.query);
+  try {
+    const { status, page = 1, pageSize = 10, search, startDate, endDate } = req.query;
+    let query = {};
+
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { subject: { $regex: search, $options: 'i' } },
+        { message: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    let createdAtQuery = {};
+    if (startDate) {
+      const startOfDay = new Date(startDate);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+      createdAtQuery.$gte = startOfDay;
+    }
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+      createdAtQuery.$lte = endOfDay;
+    }
+    if (Object.keys(createdAtQuery).length > 0) {
+      query.createdAt = createdAtQuery;
+    }
+
+    const skip = (Number(page) - 1) * Number(pageSize);
+    const totalCount = await SupportMessage.countDocuments(query);
+    const messages = await SupportMessage.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(pageSize));
+
+    res.json({
+      messages,
+      page: Number(page),
+      pages: Math.ceil(totalCount / Number(pageSize)),
+      totalCount
+    });
+  } catch (error) {
+    console.error('Error in getSupportMessages:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * PATCH /api/admin/support-messages/:id
+ * Update support message status
+ */
+const updateSupportMessageStatus = async (req, res) => {
+  console.log('API Hit: updateSupportMessageStatus', req.params.id, req.body);
+  try {
+    const { status } = req.body;
+    const message = await SupportMessage.findById(req.params.id);
+
+    if (!message) {
+      return res.status(404).json({ message: 'Support message not found' });
+    }
+
+    message.status = status || message.status;
+    await message.save();
+
+    res.json(message);
+  } catch (error) {
+    console.error('Error in updateSupportMessageStatus:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * DELETE /api/admin/support-messages/:id
+ * Delete a support message
+ */
+const deleteSupportMessage = async (req, res) => {
+  console.log('API Hit: deleteSupportMessage', req.params.id);
+  try {
+    const message = await SupportMessage.findById(req.params.id);
+
+    if (!message) {
+      return res.status(404).json({ message: 'Support message not found' });
+    }
+
+    await SupportMessage.deleteOne({ _id: message._id });
+    res.json({ message: 'Support message removed successfully' });
+  } catch (error) {
+    console.error('Error in deleteSupportMessage:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 module.exports = {
   getAdminDashboard,
   getUsers,
@@ -1070,7 +1190,6 @@ module.exports = {
   getSubscriptionById,
   updateSubscription,
   deleteSubscription,
-  getAllSubscriptions,
   getAnalytics,
   getWorklogsByWorker,
   getAllDisputes,
@@ -1079,4 +1198,7 @@ module.exports = {
   getAdminConversationMessages,
   updateWorklogStatus,
   deleteWorklog,
+  getSupportMessages,
+  updateSupportMessageStatus,
+  deleteSupportMessage
 };

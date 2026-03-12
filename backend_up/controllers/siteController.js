@@ -1,6 +1,9 @@
 const { User } = require('../models/User');
 const Job = require('../models/Job');
 const Subscription = require('../models/Subscription');
+const SupportMessage = require('../models/SupportMessage');
+const emailService = require('../services/emailService');
+const notificationService = require('../services/notificationService');
 
 /**
  * GET /api/site/stats
@@ -107,6 +110,53 @@ function formatCount(num) {
     return num + '+';
 }
 
+/**
+ * POST /api/site/contact
+ * Public endpoint — handles contact form submissions.
+ */
+const submitContactForm = async (req, res) => {
+    try {
+        const { name, email, subject, message } = req.body;
+
+        if (!name || !email || !subject || !message) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        const supportMessage = await SupportMessage.create({
+            name,
+            email,
+            subject,
+            message
+        });
+
+        console.log('📬 New Support Message Received:', JSON.stringify(supportMessage, null, 2));
+
+        // Send email notification to admin asynchronously
+        emailService.sendSupportNotificationEmail(supportMessage).catch(err => {
+            console.error('Failed to send support notification email:', err.message);
+        });
+
+        // Send in-app notification to all admins
+        notificationService.notifyAdmins({
+            type: 'system',
+            title: 'New Support Message',
+            message: `New message from ${name}: ${subject}`,
+            relatedId: supportMessage._id,
+            relatedModel: 'SupportMessage',
+            actionUrl: '/admin/support'
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Your message has been received. We will get back to you soon.'
+        });
+    } catch (error) {
+        console.error('Contact form submission error:', error.message);
+        res.status(500).json({ message: 'Failed to send message. Please try again later.' });
+    }
+};
+
 module.exports = {
     getSiteStats,
+    submitContactForm,
 };

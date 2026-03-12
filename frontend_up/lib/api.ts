@@ -10,7 +10,7 @@ export const API_ROOT_URL = API_BASE_URL.replace("/api", "");
 const IMAGE_KEYS = new Set([
   'profileImage', 'profilePicture', 'photo', 'avatar',
   'startPhoto', 'endPhoto', 'logo', 'image', 'images',
-  'pdfUrl', 'certificateUrl', 'resume', 'document',
+  'pdfUrl', 'certificateUrl', 'resume', 'document', 'fileUrl'
 ]);
 
 function resolveImageUrls(data: any, key?: string): any {
@@ -40,6 +40,18 @@ function resolveImageUrls(data: any, key?: string): any {
   return data;
 }
 
+
+export class APIError extends Error {
+  status: number;
+  data: any;
+
+  constructor(message: string, status: number, data: any = null) {
+    super(message);
+    this.name = "APIError";
+    this.status = status;
+    this.data = data;
+  }
+}
 
 export class APIClient {
   private baseURL: string
@@ -87,13 +99,22 @@ export class APIClient {
     }
 
     if (!response.ok) {
+      if (response.status === 429 && typeof window !== "undefined") {
+        // Only trigger event for non-silent requests (profile checks are silent)
+        if (endpoint !== "/users/profile") {
+          window.dispatchEvent(new CustomEvent("api-rate-limit", { 
+            detail: { message: "Too many requests. Please wait a few minutes." } 
+          }));
+        }
+      }
+
       let errorData;
       try {
         errorData = JSON.parse(responseText);
       } catch (e) {
         errorData = { message: "An unknown error occurred" };
       }
-      throw new Error(errorData.message || `API Error: ${response.status}`);
+      throw new APIError(errorData.message || `API Error: ${response.status}`, response.status, errorData);
     }
 
     if (response.status === 204 || responseText === "") {
@@ -728,6 +749,8 @@ export class APIClient {
     title?: string;
     status?: string;
     workType?: string;
+    startDate?: string;
+    endDate?: string;
     page?: number;
     pageSize?: number;
   }): Promise<{ jobs: any[]; page: number; pages: number; totalJobs: number }> {
@@ -880,6 +903,31 @@ export class APIClient {
     });
   }
 
+  async getSupportMessages(params?: {
+    status?: string;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ messages: any[]; page: number; pages: number; total: number }> {
+    const query = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v !== undefined) as any).toString();
+    return this.request(`/admin/support-messages?${query}`);
+  }
+
+  async updateSupportMessageStatus(id: string, status: string) {
+    return this.request(`/admin/support-messages/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async deleteSupportMessage(id: string) {
+    return this.request(`/admin/support-messages/${id}`, {
+      method: "DELETE",
+    });
+  }
+
   async getPendingRatingPrompts() {
     return this.request("/ratings/pending-prompts");
   }
@@ -945,6 +993,49 @@ export class APIClient {
   async logout() {
     return this.request("/users/logout", {
       method: "POST",
+    });
+  }
+
+  // Testimonials
+  async getActiveTestimonials() {
+    return this.request("/site/testimonials");
+  }
+
+  async getAllTestimonials() {
+    return this.request("/admin/testimonials");
+  }
+
+  async createTestimonial(data: {
+    author: string;
+    role: string;
+    quote: string;
+    rating?: number;
+    image?: string;
+    isActive?: boolean;
+  }) {
+    return this.request("/admin/testimonials", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTestimonial(id: string, data: Partial<{
+    author: string;
+    role: string;
+    quote: string;
+    rating: number;
+    image: string;
+    isActive: boolean;
+  }>) {
+    return this.request(`/admin/testimonials/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTestimonial(id: string) {
+    return this.request(`/admin/testimonials/${id}`, {
+      method: "DELETE",
     });
   }
 }

@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { apiClient } from "@/lib/api"
+import { useAuth } from "@/hooks/use-auth"
 import { ArrowLeft, Loader2, MapPin } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import dynamic from 'next/dynamic';
@@ -98,6 +99,7 @@ export default function CreateJobPage() {
   const tJobs = useTranslations('Jobs')
   const tCommon = useTranslations('Common')
   const router = useRouter()
+  const { user, isLoading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [selectedWorkerType, setSelectedWorkerType] = useState<string>("")
@@ -124,25 +126,40 @@ export default function CreateJobPage() {
     geoTaggingRequired: false,
   })
 
-  // Check subscription on mount
+  // Check subscription and auth on mount
   useEffect(() => {
-    const checkSubscription = async () => {
-      try {
-        const response = await apiClient.getCurrentSubscription() as any
-        if (response && new Date(response.endDate) >= new Date()) {
-          setHasSubscription(true)
-        } else {
-          setHasSubscription(false)
-        }
-      } catch (error) {
-        // No subscription or error fetching
-        setHasSubscription(false)
-      } finally {
-        setSubscriptionLoading(false)
-      }
+    if (!authLoading && (!user || user.role !== "employer")) {
+      router.push("/auth/login");
+      return;
     }
-    checkSubscription()
-  }, [])
+
+    if (!authLoading && user) {
+      const checkSubscription = async () => {
+        try {
+          const response = await apiClient.getCurrentSubscription() as any
+          if (response && new Date(response.endDate) >= new Date()) {
+            setHasSubscription(true)
+          } else {
+            setHasSubscription(false)
+            toast.info("You have no active subscription. Please buy one to post jobs.", {
+              id: 'no-subscription-toast'
+            })
+            router.push("/subscriptions")
+          }
+        } catch (error) {
+          // No subscription or error fetching
+          setHasSubscription(false)
+          toast.info("You have no active subscription. Please buy one to post jobs.", {
+            id: 'no-subscription-toast'
+          })
+          router.push("/subscriptions")
+        } finally {
+          setSubscriptionLoading(false)
+        }
+      }
+      checkSubscription()
+    }
+  }, [user, authLoading, router])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -200,7 +217,7 @@ export default function CreateJobPage() {
         (formData.minExperience && !/^\d+$/.test(formData.minExperience)) ||
         (formData.maxExperience && !/^\d+$/.test(formData.maxExperience))
       ) {
-        throw new Error(t('create.errors.fillRequired'))
+        throw new Error(t('errors.fillRequired'))
       }
 
       await apiClient.createJob({
@@ -245,6 +262,18 @@ export default function CreateJobPage() {
   }
 
   const availableSkills = selectedWorkerType ? workerTypeSkills[selectedWorkerType] || [] : [];
+
+  if (authLoading || loading || subscriptionLoading || hasSubscription === false) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (!user || user.role !== "employer") {
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">

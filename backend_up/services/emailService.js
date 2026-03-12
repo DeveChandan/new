@@ -228,9 +228,54 @@ class EmailService {
   }
 
   /**
-   * Verify SMTP connection
+   * Send notification to admin about new support message
+   * @param {Object} supportMessage - The support message object from DB
+   */
+  async sendSupportNotificationEmail(supportMessage) {
+    const mailOptions = {
+      from: process.env.SMTP_FROM || 'noreply@shramikseva.com',
+      to: process.env.SMTP_USER, // Send to the admin/support email
+      subject: `New Support Inquiry: ${supportMessage.subject}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <div style="background: #4F46E5; color: white; padding: 15px; border-radius: 8px 8px 0 0; text-align: center;">
+              <h2 style="margin: 0;">New Contact Form Submission</h2>
+            </div>
+            <div style="padding: 20px; background: #fafafa;">
+              <p><strong>From:</strong> ${supportMessage.name} (&lt;${supportMessage.email}&gt;)</p>
+              <p><strong>Subject:</strong> ${supportMessage.subject}</p>
+              <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
+              <p><strong>Message:</strong></p>
+              <div style="background: white; padding: 15px; border-radius: 5px; border: 1px solid #eee; white-space: pre-wrap;">${supportMessage.message}</div>
+              <p style="margin-top: 20px; font-size: 13px; color: #666;">
+                Received on: ${new Date(supportMessage.createdAt).toLocaleString()}
+              </p>
+            </div>
+            <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+              <p>Shramik Seva Support System</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
 
-   * @returns {Promise<boolean>} - Connection status
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('Support notification email sent:', info.messageId);
+      return info;
+    } catch (error) {
+      console.error('Error sending support notification email:', error);
+      // Don't throw, we don't want to break the submission flow if email fails
+      return null;
+    }
+  }
+
+  /**
+   * Verify SMTP connection
    */
   async verifyConnection() {
     try {

@@ -7,6 +7,7 @@
             "description": "इस नौकरी के लिए आवेदन करने के लिए, अपना बायोडाटा या सीवी अपलोड करने की अनुशंसा की जाती है।",
             "selectExistingCV": "मौजूदा बायोडाटा चुनें",
             "orUploadNew": "या नया अपलोड करें",
+            "useSelectedAndApply": "चयनित का उपयोग करें और आवेदन करें",
             "selectFile": "पीडीएफ या छवि चुनें",
             "uploadAndApply": "अपलोड करें और आवेदन करें",
             "uploading": "अपलोड हो रहा है...",
@@ -82,7 +83,9 @@
             "companyName": "कंपनी का नाम",
             "workerType": "कार्यकर्ता प्रकार",
             "yearsOfExperience": "अनुभव के वर्ष",
-            "profile": "प्रोफ़ाइल"
+            "profile": "प्रोफ़ाइल",
+            "from": "से",
+            "to": "तक"
         },
         "status": {
             "active": "सक्रिय",
@@ -192,7 +195,8 @@
         "myJobs": "मेरी नौकरियां",
         "applications": "आवेदन",
         "analytics": "विश्लेषण",
-        "subscriptions": "सदस्यता"
+        "subscriptions": "सदस्यता",
+        "support": "सहायता"
     },
     "SubscriptionLimits": {
         "title": "डेटाबेस अनलॉक सीमा समाप्त",
@@ -946,7 +950,15 @@
             "notificationCenter": "सूचना केंद्र",
             "worklogs": "कार्य लॉग",
             "admin": "एडमिन",
-            "adminPanel": "एडमिन पैनल"
+            "adminPanel": "एडमिन पैनल",
+            "support": "सहायता संदेश",
+            "testimonials": "प्रमाणपत्र",
+            "categories": {
+                "platform": "प्लेटफॉर्म",
+                "management": "प्रबंधन",
+                "revenue": "राजस्व",
+                "feedback": "प्रतिक्रिया"
+            }
         },
         "dashboard": {
             "title": "एडमिन डैशबोर्ड",
@@ -1144,6 +1156,7 @@
             "title": "भुगतान",
             "subtitle": "प्लेटफ़ॉर्म लेनदेन की निगरानी और प्रबंधन करें",
             "list": "सूची",
+            "searchPlaceholder": "चालान आईडी या नियोक्ता द्वारा खोजें...",
             "invoiceId": "चालान आईडी",
             "employer": "नियोक्ता",
             "plan": "योजना",
@@ -1216,6 +1229,8 @@
             "search": "खोजें",
             "clearAll": "सब साफ़ करें",
             "docName": "दस्तावेज़ का नाम",
+            "searchPlaceholderDoc": "दस्तावेज़ के नाम से खोजें...",
+            "searchPlaceholderUser": "उपयोगकर्ता के नाम से खोजें...",
             "userName": "उपयोगकर्ता का नाम",
             "status": "स्थिति",
             "type": "प्रकार",
@@ -1287,7 +1302,7 @@
             "noWorkersNone": "कोई श्रमिक नहीं",
             "clearFilters": "फ़िल्टर साफ़ करें",
             "loading": "लोड हो रहा है",
-            "searchPlaceholder": "श्रमिक के नाम से खोजें...",
+            "searchPlaceholder": "नाम या मोबाइल द्वारा खोजें...",
             "filterByDate": "तिथि से फ़िल्टर करें",
             "filterByStatus": "स्थिति से फ़िल्टर करें",
             "stats": {
@@ -1332,6 +1347,30 @@
                 "notFoundSubtitle": "अपने खोज फ़िल्टर समायोजित करने का प्रयास करें"
             },
             "loadingMoreLogs": "और लॉग लोड हो रहे हैं..."
+        },
+        "support": {
+            "title": "सहायता संदेश",
+            "subtitle": "ग्राहक पूछताछ और सहायता अनुरोधों को संभालें",
+            "search": "खोजें",
+            "searchPlaceholder": "नाम, ईमेल या विषय द्वारा खोजें...",
+            "status": "स्थिति",
+            "all": "सभी",
+            "new": "नया",
+            "read": "पढ़ा गया",
+            "replied": "उत्तर दिया गया",
+            "closed": "बंद",
+            "actions": "कार्रवाई",
+            "markRead": "पढ़ा गया के रूप में चिह्नित करें",
+            "markReplied": "उत्तर दिया गया के रूप में चिह्नित करें",
+            "markClosed": "टिकट बंद करें",
+            "delete": "हटाएं",
+            "confirmDelete": "क्या आप वाकई इस सहायता संदेश को हटाना चाहते हैं?",
+            "noMessages": "कोई सहायता संदेश नहीं मिला।",
+            "from": "प्रेषक",
+            "subject": "विषय",
+            "message": " संदेश",
+            "receivedAt": "प्राप्त हुआ",
+            "details": "विवरण"
         }
     },
     "Filters": {

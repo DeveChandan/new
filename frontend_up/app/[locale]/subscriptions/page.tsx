@@ -115,7 +115,7 @@ export default function SubscriptionsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <Link href={user?.role === 'employer' ? '/dashboard/employer' : (user ? '/jobs' : '/')} className="flex items-center gap-2 group">
             <img src="/logo.png" alt="Shramik Seva" className="w-10 h-10 object-contain drop-shadow-sm group-hover:scale-105 transition-transform" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent tracking-tight">
+            <span className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent tracking-tight">
               {tCommon('appName')}
             </span>
           </Link>
@@ -148,14 +148,14 @@ export default function SubscriptionsPage() {
                 </Button>
               </>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 sm:gap-3">
                 <Link href="/">
-                  <Button variant="ghost" className="gap-2">
-                    <ArrowLeft className="w-4 h-4" /> Home
+                  <Button variant="ghost" className="gap-2 px-2 sm:px-4">
+                    <ArrowLeft className="w-4 h-4 hidden sm:block" /> Home
                   </Button>
                 </Link>
                 <Link href="/auth/login">
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6">
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-4 sm:px-6 text-xs sm:text-sm">
                     Login to Subscribe
                   </Button>
                 </Link>
@@ -254,7 +254,7 @@ export default function SubscriptionsPage() {
         )}
 
         {loading ? (
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {[...Array(3)].map((_, i) => (
               <Card key={i} className="p-6 bg-card/80 border-border/50 backdrop-blur-lg flex flex-col">
                 <Skeleton className="h-8 w-2/4 mb-2" />
@@ -270,20 +270,21 @@ export default function SubscriptionsPage() {
             ))}
           </div>
         ) : (
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {plans.map((plan) => {
-              const isCurrentPlan = isEmployer && currentSubscription && currentSubscription.plan === plan.planKey;
+              const isSubscriptionActive = currentSubscription && currentSubscription.status === 'active' && new Date(currentSubscription.endDate) >= new Date();
+              const isCurrentPlan = isEmployer && isSubscriptionActive && currentSubscription.plan === plan.planKey;
               const isRecommended = !isCurrentPlan && plan.planKey === 'pro'; // Recommend Pro plan
 
               const planLevels: Record<string, number> = { free: 0, basic: 1, pro: 2, premium: 3 };
 
-              const currentLevel = currentSubscription ? (planLevels[currentSubscription.plan] || 0) : 0;
+              const currentLevel = (isEmployer && isSubscriptionActive) ? (planLevels[currentSubscription.plan] || 0) : -1;
               const thisLevel = planLevels[plan.planKey] || 0;
 
               // Add-on logic
               const isAddon = plan.planKey === 'worklog_access';
               const isUpgrade = !isAddon && (!isEmployer || thisLevel > currentLevel);
-              const isDowngrade = !isAddon && (isEmployer && currentSubscription && thisLevel < currentLevel);
+              const isDowngrade = !isAddon && (isEmployer && isSubscriptionActive && thisLevel < currentLevel);
               const isPremium = currentLevel === 3;
               const hasActiveAddon = currentSubscription && currentSubscription.worklogAccessExpiry && new Date(currentSubscription.worklogAccessExpiry) > new Date();
 

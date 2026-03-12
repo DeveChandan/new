@@ -59,6 +59,27 @@ class NotificationService {
     }
 
     /**
+     * Broadcast notification to all admins
+     * @param {Object} data - Notification data
+     */
+    async notifyAdmins(data) {
+        try {
+            const admins = await User.find({ role: 'admin' }).select('_id');
+            const notifications = await Promise.all(admins.map(async (admin) => {
+                return await this.createAndSend({
+                    ...data,
+                    userId: admin._id,
+                    userRole: 'admin'
+                });
+            }));
+            return notifications;
+        } catch (error) {
+            console.error('Error notifying admins:', error);
+            // Don't throw to avoid breaking the main flow
+        }
+    }
+
+    /**
      * Send push notification via Expo Push API
      * @param {String} userId - User ID to send notification to
      * @param {Object} notification - Notification object

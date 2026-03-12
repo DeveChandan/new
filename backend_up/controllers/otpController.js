@@ -27,6 +27,12 @@ const requestOtp = async (req, res) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
   try {
+    // For login, verify that the user exists before dispatching the OTP to save SMS costs
+    const userExists = await User.findOne({ mobile });
+    if (!userExists) {
+      return res.status(404).json({ message: 'User not found. Please register first.' });
+    }
+
     // Save OTP to database
     await Otp.create({ mobile, otp });
 

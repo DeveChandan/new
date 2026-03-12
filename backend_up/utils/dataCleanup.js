@@ -125,6 +125,8 @@ const validateDataIntegrity = async () => {
     }
 };
 
+const { cleanUnusedFiles } = require('./cleanUnusedFiles');
+
 /**
  * Run all cleanup tasks
  */
@@ -135,6 +137,7 @@ const runAllCleanupTasks = async () => {
         orphanedApplications: await cleanOrphanedApplications(),
         oldNotifications: await cleanOldNotifications(),
         expiredOtps: await cleanExpiredOtps(),
+        unusedFiles: await cleanUnusedFiles(),
         dataIntegrity: await validateDataIntegrity()
     };
 

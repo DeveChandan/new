@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { type AuthUser, getAuthToken, getUser, isAuthenticated, clearAuthToken } from "@/lib/auth"
-import { apiClient } from "@/lib/api" // Import apiClient
+import { apiClient, APIError } from "@/lib/api" // Import apiClient and APIError
 
 export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -16,6 +16,13 @@ export function useAuth() {
       localStorage.setItem("user", JSON.stringify(fetchedUser)); // Update localStorage
     } catch (error) {
       console.error("Failed to refresh user profile:", error);
+      
+      // If it's a rate limit error (429), don't log out the user
+      if (error instanceof APIError && error.status === 429) {
+        console.warn("Rate limit hit during profile refresh. Maintaining session.");
+        return;
+      }
+
       setUser(null); // Clear user if profile fetch fails
       clearAuthToken();
     } finally {

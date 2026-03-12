@@ -37,6 +37,7 @@ export default function AdminPaymentsPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [error, setError] = useState("")
   const [statusFilter, setStatusFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -65,6 +66,7 @@ export default function AdminPaymentsPage() {
       setError(err.message || t('errors.fetchFailed'))
     } finally {
       setLoading(false)
+      setIsInitialLoad(false)
     }
   }
 
@@ -126,7 +128,7 @@ export default function AdminPaymentsPage() {
     }
   }
 
-  if (authLoading || loading) {
+  if (authLoading || (loading && isInitialLoad)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -154,13 +156,13 @@ export default function AdminPaymentsPage() {
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   type="text"
-                  placeholder="Search by invoice ID, employer name, or email..."
+                  placeholder={t('searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-10"
                 />
               </div>
             </div>

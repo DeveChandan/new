@@ -23,8 +23,17 @@ const {
   getJobDetails,
   getAdminConversationMessages,
   updateWorklogStatus,
-  deleteWorklog
+  deleteWorklog,
+  getSupportMessages,
+  updateSupportMessageStatus,
+  deleteSupportMessage
 } = require('../controllers/adminController');
+const {
+  getAllTestimonials,
+  createTestimonial,
+  updateTestimonial,
+  deleteTestimonial
+} = require('../controllers/testimonialController');
 const { protect } = require('../middleware/authMiddleware');
 const { admin } = require('../middleware/adminMiddleware');
 
@@ -49,5 +58,20 @@ router.route('/worklogs/worker/:workerId').get(protect, admin, getWorklogsForSin
 router.route('/worklogs/:id/status').put(protect, admin, updateWorklogStatus);
 router.route('/worklogs/:id').delete(protect, admin, deleteWorklog);
 router.route('/conversations/:conversationId/messages').get(protect, admin, getAdminConversationMessages); // New Route
+
+// Support Messages
+router.route('/support-messages').get(protect, admin, getSupportMessages);
+router.route('/support-messages/:id')
+  .patch(protect, admin, updateSupportMessageStatus)
+  .delete(protect, admin, deleteSupportMessage);
+
+// Testimonials
+router.route('/testimonials')
+  .get(protect, admin, getAllTestimonials)
+  .post(protect, admin, createTestimonial);
+
+router.route('/testimonials/:id')
+  .put(protect, admin, updateTestimonial)
+  .delete(protect, admin, deleteTestimonial);
 
 module.exports = router;

@@ -69,7 +69,7 @@ export default async function RootLayout({
         <link rel="canonical" href="https://shramik-seva.com" />
       </head>
       <body className={`${notoSans.variable} ${notoSans.className} antialiased bg-background text-foreground`} suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="shramik-theme">
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem storageKey="shramik-theme">
           <NextIntlClientProvider messages={messages}>
             <NotificationProvider>
               <SubscriptionProvider>

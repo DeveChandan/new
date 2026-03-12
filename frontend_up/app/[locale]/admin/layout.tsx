@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { useState, useEffect } from "react"
 import { Link } from "@/navigation"
 import { useRouter, usePathname } from "@/navigation";
@@ -22,11 +22,27 @@ import {
   Loader2,
   CreditCard,
   Receipt,
-  Bell
+  Bell,
+  Headset,
+  ChevronRight,
+  Search,
+  Settings,
+  Sparkles
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import LanguageSwitcher from "@/components/LanguageSwitcher"
 import { useTranslations } from 'next-intl'
+import { NotificationBell } from "@/components/NotificationBell"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { Separator } from "@/components/ui/separator"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations('Admin.layout')
@@ -55,18 +71,66 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
-  const navItems = [
-    { href: "/admin/dashboard", icon: LayoutDashboard, labelKey: "dashboard" },
-    { href: "/admin/users", icon: Users, labelKey: "users" },
-    { href: "/admin/jobs", icon: ClipboardList, labelKey: "jobs" },
-    { href: "/admin/ratings", icon: Star, labelKey: "ratings" },
-    { href: "/admin/documents", icon: FileText, labelKey: "documents" },
-    { href: "/admin/disputes", icon: Gavel, labelKey: "disputes" },
-    { href: "/admin/subscriptions", icon: CreditCard, labelKey: "subscriptions" },
-    { href: "/admin/payments", icon: Receipt, labelKey: "payments" },
-    { href: "/admin/notification-center", icon: Bell, labelKey: "notificationCenter" },
-    { href: "/admin/worklogs", icon: Briefcase, labelKey: "worklogs" },
+  const navGroups = [
+    {
+      titleKey: "platform",
+      items: [
+        { href: "/admin/dashboard", icon: LayoutDashboard, labelKey: "dashboard" },
+        { href: "/admin/notification-center", icon: Bell, labelKey: "notificationCenter" },
+      ]
+    },
+    {
+      titleKey: "management",
+      items: [
+        { href: "/admin/users", icon: Users, labelKey: "users" },
+        { href: "/admin/jobs", icon: ClipboardList, labelKey: "jobs" },
+        { href: "/admin/documents", icon: FileText, labelKey: "documents" },
+        { href: "/admin/worklogs", icon: Briefcase, labelKey: "worklogs" },
+      ]
+    },
+    {
+      titleKey: "revenue",
+      items: [
+        { href: "/admin/subscriptions", icon: CreditCard, labelKey: "subscriptions" },
+        { href: "/admin/payments", icon: Receipt, labelKey: "payments" },
+      ]
+    },
+    {
+      titleKey: "feedback",
+      items: [
+        { href: "/admin/support", icon: Headset, labelKey: "support" },
+        { href: "/admin/disputes", icon: Gavel, labelKey: "disputes" },
+        { href: "/admin/ratings", icon: Star, labelKey: "ratings" },
+        { href: "/admin/testimonials", icon: Sparkles, labelKey: "testimonials" },
+      ]
+    }
   ]
+
+  const getBreadcrumbs = () => {
+    const segments = pathname.split('/').filter(Boolean)
+    // Remove locale segment
+    if (segments.length > 0 && segments[0].length === 2) {
+      segments.shift()
+    }
+
+    return segments.map((segment, index) => {
+      const href = '/' + segments.slice(0, index + 1).join('/')
+      // Convert kebab-case to camelCase for translation keys (e.g., notification-center -> notificationCenter)
+      const translationKey = segment === 'admin'
+        ? 'admin'
+        : segment.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+
+      return {
+        label: t(translationKey),
+        href,
+        isCurrent: index === segments.length - 1
+      }
+    })
+  }
+
+  const breadcrumbs = getBreadcrumbs()
+
+  const userInitials = user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'A'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-accent/10">
@@ -83,66 +147,85 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         className={`fixed inset-y-0 left-0 z-50 w-64 bg-background/95 border-r border-border/50 backdrop-blur-md p-4 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
           } lg:translate-x-0 lg:bg-background/40`}
       >
-        <div className="flex items-center justify-between mb-6 lg:justify-center">
-          <Link href="/admin/dashboard" className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Briefcase className="w-7 h-7 text-primary" />
-            <span className="lg:hidden xl:inline">{t('admin')}</span>
+        <div className="flex items-center gap-2 px-2 mb-8">
+          <Link href="/admin/dashboard" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
+              <Briefcase className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-bold text-lg leading-tight tracking-tight">{t('admin')}</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">{t('adminPanel')}</span>
+            </div>
           </Link>
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden ml-auto h-8 w-8"
             onClick={() => setIsSidebarOpen(false)}
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </Button>
         </div>
 
-        <nav className="flex-1 space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname.startsWith(item.href)
-            return (
-              <Link key={item.href} href={item.href}>
-                <Button
-                  variant={isActive ? "secondary" : "ghost"}
-                  className={`w-full justify-start gap-3 rounded-full h-11 ${isActive ? "bg-primary/10 text-primary hover:bg-primary/20" : "hover:bg-primary/10"
-                    }`}
-                  onClick={() => setIsSidebarOpen(false)}
-                >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="truncate">{t(item.labelKey)}</span>
-                </Button>
-              </Link>
-            )
-          })}
+        <nav className="flex-1 px-2 space-y-6 overflow-y-auto custom-scrollbar">
+          {navGroups.map((group) => (
+            <div key={group.titleKey} className="space-y-1">
+              <h4 className="px-4 text-[11px] font-bold text-muted-foreground/60 uppercase tracking-[0.15em] mb-2">
+                {t(`categories.${group.titleKey}`)}
+              </h4>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon
+                  const isActive = pathname.includes(item.href)
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <Button
+                        variant="ghost"
+                        className={`w-full justify-start gap-3 rounded-lg h-10 px-4 transition-all duration-200 ${isActive
+                          ? "bg-primary/10 text-primary font-semibold shadow-sm shadow-primary/5"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          }`}
+                        onClick={() => setIsSidebarOpen(false)}
+                      >
+                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-primary" : "text-muted-foreground/70"}`} />
+                        <span className="text-sm">{t(item.labelKey)}</span>
+                        {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+                      </Button>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        <div className="mt-auto pt-4 border-t border-border/50 space-y-4">
-          <div className="flex items-center justify-between">
-            <LanguageSwitcher />
-            <ThemeToggle />
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 bg-transparent text-foreground rounded-full h-10"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="lg:hidden xl:inline">{tCommon('buttons.logout')}</span>
-            </Button>
-          </div>
+        <div className="mt-auto px-2 pt-4 border-t border-border/50">
+          <Button
+            onClick={handleLogout}
+            variant="ghost"
+            className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg h-10 px-4 mb-2"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="text-sm">{tCommon('buttons.logout')}</span>
+          </Button>
 
-          {/* User Info - Hidden on mobile, shown on larger screens */}
-          <div className="hidden lg:block border-t pt-4">
+          <div className="p-3 bg-accent/30 rounded-xl border border-border/50 backdrop-blur-sm">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <Users className="w-4 h-4 text-primary" />
-              </div>
+              <Avatar className="h-9 w-9 border-2 border-background shadow-sm">
+                <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
               <div className="overflow-hidden">
-                <p className="text-sm font-medium truncate">{user.name || user.email}</p>
-                <p className="text-xs text-muted-foreground truncate capitalize">{user.role}</p>
+                <p className="text-xs font-bold truncate leading-none mb-1">{user.name || user.email}</p>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                  <p className="text-[10px] text-muted-foreground truncate capitalize">{user.role}</p>
+                </div>
               </div>
+              <Button variant="ghost" size="icon" className="ml-auto h-7 w-7 rounded-md">
+                <Settings className="w-3.5 h-3.5 text-muted-foreground" />
+              </Button>
             </div>
           </div>
         </div>
@@ -150,8 +233,61 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main Content Area */}
       <div className="lg:ml-64 min-h-screen flex flex-col">
+        {/* Desktop Header */}
+        <header className="hidden lg:flex sticky top-0 z-30 h-16 bg-background/60 border-b border-border/50 backdrop-blur-xl px-8 items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link href="/admin/dashboard" className="text-muted-foreground/60 hover:text-primary transition-colors">
+                      {t('admin')}
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                {breadcrumbs.map((crumb, i) => (
+                  <React.Fragment key={crumb.href}>
+                    <BreadcrumbSeparator className="text-muted-foreground/40" />
+                    <BreadcrumbItem>
+                      {crumb.isCurrent ? (
+                        <BreadcrumbPage className="font-bold tracking-tight">{crumb.label}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink asChild>
+                          <Link href={crumb.href} className="text-muted-foreground/60 hover:text-primary transition-colors italic">
+                            {crumb.label}
+                          </Link>
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  </React.Fragment>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* <div className="px-3 h-9 bg-accent/40 rounded-full border border-border/40 flex items-center gap-2 shadow-sm focus-within:ring-2 ring-primary/20 transition-all">
+              <Search className="w-4 h-4 text-muted-foreground/60" />
+              <input
+                type="text"
+                placeholder="Search anything..."
+                className="bg-transparent border-none outline-none text-xs w-32 focus:w-48 transition-all duration-300 placeholder:text-muted-foreground/40"
+              />
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground/40 font-mono bg-background/50 px-1 border border-border/40 rounded uppercase">
+                <kbd className="font-sans">Ctrl</kbd>+K
+              </div>
+            </div> */}
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <NotificationBell />
+            <LanguageSwitcher />
+            <ThemeToggle />
+          </div>
+        </header>
+
         {/* Mobile Header */}
-        <header className="sticky top-0 z-30 bg-card/95 border-b border-border/50 backdrop-blur-lg p-4 flex items-center justify-between lg:hidden">
+        <header className="sticky top-0 z-30 bg-background/80 border-b border-border/50 backdrop-blur-lg p-4 flex items-center justify-between lg:hidden">
           <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(true)}>
             <Menu className="w-6 h-6" />
           </Button>
@@ -161,6 +297,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
           </div>
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <LanguageSwitcher />
             <ThemeToggle />
             <Button
@@ -180,29 +317,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {children}
           </div>
         </main>
-
-        {/* Mobile Footer */}
-        {/* <footer className="lg:hidden border-t border-border/50 p-4 bg-card/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <Users className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">{user.name || user.email}</p>
-                <p className="text-xs text-muted-foreground capitalize">Admin</p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLogout}
-              className="rounded-full"
-            >
-              Logout
-            </Button>
-          </div>
-        </footer> */}
       </div>
     </div>
   )

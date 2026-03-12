@@ -11,9 +11,27 @@ export default function ContactPage() {
     const [formData, setFormData] = useState({ name: "", email: "", subject: "", message: "" })
     const [submitted, setSubmitted] = useState(false)
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        setSubmitted(true)
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/site/contact`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
+
+            if (response.ok) {
+                setSubmitted(true)
+            } else {
+                const data = await response.json();
+                alert(data.message || 'Failed to send message');
+            }
+        } catch (error) {
+            console.error('Error submitting contact form:', error);
+            alert('An error occurred. Please try again later.');
+        }
     }
 
     return (
@@ -120,7 +138,10 @@ export default function ContactPage() {
                                         </div>
                                         <h3 className="text-xl font-bold mb-2">Message Sent!</h3>
                                         <p className="text-muted-foreground">Thank you for reaching out. We'll get back to you within 24 hours.</p>
-                                        <Button className="mt-6" onClick={() => setSubmitted(false)}>Send Another</Button>
+                                        <Button className="mt-6" onClick={() => {
+                                            setSubmitted(false)
+                                            setFormData({ name: "", email: "", subject: "", message: "" })
+                                        }}>Send Another</Button>
                                     </motion.div>
                                 ) : (
                                     <form onSubmit={handleSubmit} className="space-y-5">

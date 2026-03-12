@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { apiClient } from "@/lib/api"
+import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "@/navigation";
 import {
   Loader2,
   CheckCircle,
@@ -32,6 +34,8 @@ import { useTranslations } from 'next-intl'
 export default function AdminDocumentsPage() {
   const t = useTranslations('Admin.documents')
   const tCommon = useTranslations('Common')
+  const router = useRouter()
+  const { user, isLoading: authLoading } = useAuth()
   const [documents, setDocuments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
@@ -195,12 +199,12 @@ export default function AdminDocumentsPage() {
                 {t('docName')}
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-3 w-3 md:h-4 md:w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
-                  placeholder="Search documents..."
+                  placeholder={t('searchPlaceholderDoc')}
                   value={searchDocumentName}
                   onChange={(e) => setSearchDocumentName(e.target.value)}
-                  className="pl-9 h-9"
+                  className="pl-9 h-10"
                 />
               </div>
             </div>
@@ -211,12 +215,12 @@ export default function AdminDocumentsPage() {
                 {t('userName')}
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-3 w-3 md:h-4 md:w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
-                  placeholder="Search users..."
+                  placeholder={t('searchPlaceholderUser')}
                   value={searchUserName}
                   onChange={(e) => setSearchUserName(e.target.value)}
-                  className="pl-9 h-9"
+                  className="pl-9 h-10"
                 />
               </div>
             </div>

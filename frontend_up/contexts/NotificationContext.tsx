@@ -211,6 +211,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         return onlineUsers.has(userId);
     }, [onlineUsers]);
 
+    // Handle API rate limit events globally
+    useEffect(() => {
+        const handleRateLimit = (event: any) => {
+            toast.warning(event.detail?.title || "Too many requests", {
+                description: event.detail?.message || "Please slow down and try again in a few minutes.",
+                id: "rate-limit-toast",
+            });
+        };
+
+        window.addEventListener('api-rate-limit', handleRateLimit);
+        return () => window.removeEventListener('api-rate-limit', handleRateLimit);
+    }, []);
+
     return (
         <NotificationContext.Provider value={{ showToast, unreadCount, fetchUnreadCount, socket, isUserOnline, checkOnlineStatus }}>
             {children}

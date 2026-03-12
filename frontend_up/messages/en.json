@@ -83,7 +83,9 @@
             "companyName": "Company Name",
             "workerType": "Worker Type",
             "yearsOfExperience": "Years of Experience",
-            "profile": "Profile"
+            "profile": "Profile",
+            "from": "From",
+            "to": "To"
         },
         "status": {
             "active": "Active",
@@ -193,7 +195,8 @@
         "myJobs": "My Jobs",
         "applications": "Applications",
         "analytics": "Analytics",
-        "subscriptions": "Subscriptions"
+        "subscriptions": "Subscriptions",
+        "support": "Support"
     },
     "SubscriptionLimits": {
         "title": "Database Unlock Limit Reached",
@@ -947,7 +950,15 @@
             "notificationCenter": "Notification Center",
             "worklogs": "Worklogs",
             "admin": "Admin",
-            "adminPanel": "Admin Panel"
+            "adminPanel": "Admin Panel",
+            "support": "Support Messages",
+            "testimonials": "Testimonials",
+            "categories": {
+                "platform": "Platform",
+                "management": "Management",
+                "revenue": "Revenue",
+                "feedback": "Feedback"
+            }
         },
         "dashboard": {
             "title": "Admin Dashboard",
@@ -1142,9 +1153,10 @@
             "locationNotSpecified": "Location not specified"
         },
         "payments": {
-            "title": "Payments",
-            "subtitle": "Monitor and manage platform transactions",
-            "list": "List",
+            "title": "Payment History",
+            "subtitle": "Track all platform transactions and invoices",
+            "list": "Invoices",
+            "searchPlaceholder": "Search by invoice ID, employer name, or email...",
             "invoiceId": "Invoice Id",
             "employer": "Employer",
             "plan": "Plan",
@@ -1216,7 +1228,9 @@
             "subtitle": "Verify worker and employer documents",
             "search": "Search",
             "clearAll": "Clear All",
-            "docName": "Doc Name",
+            "docName": "Document Name",
+            "searchPlaceholderDoc": "Search by document name...",
+            "searchPlaceholderUser": "Search by user name...",
             "userName": "User Name",
             "status": "Status",
             "type": "Type",
@@ -1288,7 +1302,7 @@
             "noWorkersNone": "No Workers None",
             "clearFilters": "Clear Filters",
             "loading": "Loading",
-            "searchPlaceholder": "Search by worker name...",
+            "searchPlaceholder": "Search by name or mobile...",
             "filterByDate": "Filter By Date",
             "filterByStatus": "Filter By Status",
             "stats": {
@@ -1333,6 +1347,30 @@
                 "notFoundSubtitle": "Try adjusting your search filters"
             },
             "loadingMoreLogs": "Loading more logs..."
+        },
+        "support": {
+            "title": "Support Messages",
+            "subtitle": "Handle customer inquiries and support requests",
+            "search": "Search",
+            "searchPlaceholder": "Search by name, email or subject...",
+            "status": "Status",
+            "all": "All",
+            "new": "New",
+            "read": "Read",
+            "replied": "Replied",
+            "closed": "Closed",
+            "actions": "Actions",
+            "markRead": "Mark as Read",
+            "markReplied": "Mark as Replied",
+            "markClosed": "Close Ticket",
+            "delete": "Delete",
+            "confirmDelete": "Are you sure you want to delete this support message?",
+            "noMessages": "No support messages found.",
+            "from": "From",
+            "subject": "Subject",
+            "message": "Message",
+            "receivedAt": "Received At",
+            "details": "Details"
         }
     },
     "Filters": {

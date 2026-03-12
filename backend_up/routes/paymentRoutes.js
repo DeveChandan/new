@@ -17,10 +17,10 @@ router.get('/current', protect, paymentController.getCurrentSubscription);
 router.get('/can-post', protect, paymentController.canPostJob);
 
 // POST /api/payments/subscribe
-router.post('/subscribe', protect, admin, paymentController.createSubscription);
+router.post('/subscribe', protect, paymentController.createSubscription);
 
 // POST /api/payments/addon
-router.post('/addon', protect, admin, paymentController.purchaseWorklogAddon);
+router.post('/addon', protect, paymentController.purchaseWorklogAddon);
 
 // --- Invoice Routes ---
 
