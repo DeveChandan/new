@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { ArrowLeft, MapPin, Phone, Mail, Clock, Send, Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import PublicNavbar from "@/components/PublicNavbar"
 
 export default function ContactPage() {
     const router = useRouter()
@@ -41,19 +42,7 @@ export default function ContactPage() {
                 <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-accent/5 rounded-full blur-[100px]" />
             </div>
 
-            <nav className="sticky top-0 w-full bg-background/60 backdrop-blur-xl border-b border-border z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <Link href="/" className="flex items-center gap-2 group">
-                        <img src="/logo.png" alt="Shramik Seva" className="w-10 h-10 object-contain drop-shadow-sm group-hover:scale-105 transition-transform" />
-                        <span className="text-2xl font-bold bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent tracking-tight">
-                            Shramik Seva
-                        </span>
-                    </Link>
-                    <Button variant="ghost" className="gap-2" onClick={() => router.back()}>
-                        <ArrowLeft className="w-4 h-4" /> Back
-                    </Button>
-                </div>
-            </nav>
+      <PublicNavbar showBack />
 
             <section className="relative pt-16 pb-12 sm:pt-24 sm:pb-16 px-4 sm:px-6 lg:px-8 z-10">
                 <div className="max-w-4xl mx-auto text-center">
@@ -86,7 +75,7 @@ export default function ContactPage() {
                             className="lg:col-span-2 space-y-6"
                         >
                             {[
-                                { icon: Building2, title: "Registered Office", desc: "SDR Security\n33/A, Manoranjan Roy Chowdhury Road,\nKolkata, West Bengal, India" },
+                                { icon: Building2, title: "Registered Office", desc: "S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED\n33/A, Manoranjan Roy Chowdhury Road,\nKolkata, West Bengal, India" },
                                 { icon: Phone, title: "Phone", desc: "+91 9305651274\n+91 8981086528\n+91-33-22847198" },
                                 { icon: Mail, title: "Email", desc: "support@sdrsecurity.in" },
                                 { icon: Clock, title: "Business Hours", desc: "Monday – Saturday\n9:00 AM – 6:00 PM IST" },
@@ -204,7 +193,7 @@ export default function ContactPage() {
 
             <footer className="border-t border-border py-8 px-4 sm:px-6 lg:px-8 bg-card/40 relative z-10">
                 <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <p className="text-sm text-muted-foreground">© 2026 Shramik Seva. All Rights Reserved. A subsidiary of SDR Security.</p>
+                    <p className="text-sm text-muted-foreground">© 2026 Shramik Seva. All Rights Reserved. A subsidiary of S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED.</p>
                     <div className="flex gap-6 text-sm">
                         <Link href="/privacy-policy" className="text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link>
                         <Link href="/terms" className="text-muted-foreground hover:text-primary transition-colors">Terms</Link>

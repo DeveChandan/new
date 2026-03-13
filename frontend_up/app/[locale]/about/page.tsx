@@ -64,7 +64,7 @@ export default function AboutPage() {
                             <h2 className="text-3xl sm:text-4xl font-extrabold mb-6 tracking-tight">Our Story</h2>
                             <div className="space-y-4 text-muted-foreground leading-relaxed">
                                 <p>
-                                    Shramik Seva is a digital platform launched by <strong className="text-foreground">SDR Security</strong>, a trusted name in the manpower and security services industry operating across multiple states in India since its inception.
+                                    Shramik Seva is a digital platform launched by <strong className="text-foreground">S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED</strong>, a trusted name in the manpower and security services industry operating across multiple states in India since its inception.
                                 </p>
                                 <p>
                                     Born from the realization that India's vast skilled workforce — security guards, plumbers, electricians, carpenters, housekeeping staff, drivers, and more — deserves a modern, dignified way to find work, Shramik Seva bridges the gap between blue-collar workers and employers.
@@ -79,7 +79,7 @@ export default function AboutPage() {
                             <div className="relative p-8 rounded-3xl bg-card border border-border/50 backdrop-blur-md">
                                 <div className="space-y-6">
                                     {[
-                                        { icon: Building2, label: "Parent Company", value: "SDR Security" },
+                                        { icon: Building2, label: "Parent Company", value: "S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED" },
                                         { icon: MapPin, label: "Headquarters", value: "Kolkata, West Bengal" },
                                         { icon: Globe, label: "Operations", value: "Pan-India" },
                                         { icon: Users, label: "Workforce Categories", value: "15+ Skill Types" },
@@ -196,10 +196,10 @@ export default function AboutPage() {
                         viewport={{ once: true }}
                         className="p-8 sm:p-12 rounded-3xl bg-card border border-border/50"
                     >
-                        <h2 className="text-3xl font-extrabold mb-6 tracking-tight">Parent Company — SDR Security</h2>
+                        <h2 className="text-3xl font-extrabold mb-6 tracking-tight">Parent Company — S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED</h2>
                         <div className="space-y-4 text-muted-foreground leading-relaxed">
                             <p>
-                                <strong className="text-foreground">SDR Security</strong> is a leading manpower and security services company headquartered in Kolkata, West Bengal. With branch offices across Ranchi, Jamshedpur, Lucknow, Noida (Delhi/NCR), Pune, Odisha, and Surat, SDR Security provides a comprehensive range of services including:
+                                <strong className="text-foreground">S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED</strong> is a leading manpower and security services company headquartered in Kolkata, West Bengal. With branch offices across Ranchi, Jamshedpur, Lucknow, Noida (Delhi/NCR), Pune, Odisha, and Surat, S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED provides a comprehensive range of services including:
                             </p>
                             <ul className="grid sm:grid-cols-2 gap-2 mt-4">
                                 {[
@@ -245,7 +245,7 @@ export default function AboutPage() {
             {/* Footer */}
             <footer className="border-t border-border py-8 px-4 sm:px-6 lg:px-8 bg-card/40 relative z-10">
                 <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <p className="text-sm text-muted-foreground">© 2026 Shramik Seva. All Rights Reserved. A subsidiary of SDR Security.</p>
+                    <p className="text-sm text-muted-foreground">© 2026 Shramik Seva. All Rights Reserved. A subsidiary of S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED.</p>
                     <div className="flex gap-6 text-sm">
                         <Link href="/privacy-policy" className="text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link>
                         <Link href="/terms" className="text-muted-foreground hover:text-primary transition-colors">Terms</Link>

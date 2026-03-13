@@ -4,6 +4,7 @@ import { Link, useRouter } from "@/navigation"
 import { motion } from "framer-motion"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import PublicNavbar from "@/components/PublicNavbar"
 
 export default function PrivacyPolicyPage() {
     const router = useRouter()
@@ -12,7 +13,7 @@ export default function PrivacyPolicyPage() {
     const sections = [
         {
             title: "1. Introduction",
-            content: `Welcome to Shramik Seva ("Platform", "we", "us", or "our"), a product of SDR Security. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and mobile application.
+            content: `Welcome to Shramik Seva ("Platform", "we", "us", or "our"), a product of S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and mobile application.
 
 By using Shramik Seva, you agree to the collection and use of information in accordance with this policy. If you do not agree with the terms of this policy, please do not access the Platform.`
         },
@@ -135,7 +136,7 @@ Third-party services we use include:
             content: `For privacy-related queries, data requests, or grievances:
 
 **Grievance Officer / Data Protection Contact**
-SDR Security (Shramik Seva)
+S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED (Shramik Seva)
 33/A, Manoranjan Roy Chowdhury Road,
 Kolkata, West Bengal, India
 
@@ -151,19 +152,7 @@ Business Hours: Monday – Saturday, 9:00 AM – 6:00 PM IST`
                 <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] animate-pulse" />
             </div>
 
-            <nav className="sticky top-0 w-full bg-background/60 backdrop-blur-xl border-b border-border z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <Link href="/" className="flex items-center gap-2 group">
-                        <img src="/logo.png" alt="Shramik Seva" className="w-10 h-10 object-contain drop-shadow-sm group-hover:scale-105 transition-transform" />
-                        <span className="text-2xl font-bold bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent tracking-tight">
-                            Shramik Seva
-                        </span>
-                    </Link>
-                    <Button variant="ghost" className="gap-2" onClick={() => router.back()}>
-                        <ArrowLeft className="w-4 h-4" /> Back
-                    </Button>
-                </div>
-            </nav>
+      <PublicNavbar showBack />
 
             <section className="relative pt-16 pb-8 sm:pt-24 sm:pb-12 px-4 sm:px-6 lg:px-8 z-10">
                 <div className="max-w-4xl mx-auto text-center">
@@ -214,7 +203,7 @@ Business Hours: Monday – Saturday, 9:00 AM – 6:00 PM IST`
 
             <footer className="border-t border-border py-8 px-4 sm:px-6 lg:px-8 bg-card/40 relative z-10 mt-12">
                 <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <p className="text-sm text-muted-foreground">© 2026 Shramik Seva. All Rights Reserved. A subsidiary of SDR Security.</p>
+                    <p className="text-sm text-muted-foreground">© 2026 Shramik Seva. All Rights Reserved. A subsidiary of S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED.</p>
                     <div className="flex gap-6 text-sm">
                         <Link href="/terms" className="text-muted-foreground hover:text-primary transition-colors">Terms & Conditions</Link>
                         <Link href="/refund-policy" className="text-muted-foreground hover:text-primary transition-colors">Refund Policy</Link>

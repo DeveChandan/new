@@ -4,6 +4,7 @@ import { Link, useRouter } from "@/navigation"
 import { motion } from "framer-motion"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import PublicNavbar from "@/components/PublicNavbar"
 
 export default function TermsPage() {
     const router = useRouter()
@@ -12,7 +13,7 @@ export default function TermsPage() {
     const sections = [
         {
             title: "1. Acceptance of Terms",
-            content: `By accessing and using Shramik Seva ("Platform"), operated by SDR Security, you agree to be bound by these Terms and Conditions ("Terms"). If you do not agree to these Terms, please do not use the Platform.
+            content: `By accessing and using Shramik Seva ("Platform"), operated by S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED, you agree to be bound by these Terms and Conditions ("Terms"). If you do not agree to these Terms, please do not use the Platform.
 
 These Terms apply to all users of the Platform including workers, employers, and visitors.`
         },
@@ -23,7 +24,7 @@ These Terms apply to all users of the Platform including workers, employers, and
 • **"Employer"** refers to any individual or organisation who registers on the Platform to hire workers.
 • **"Subscription"** refers to a paid plan purchased by an Employer to access premium features.
 • **"Services"** refers to all features and functionalities provided through the Platform.
-• **"Company"**, **"we"**, **"us"** refers to SDR Security, the operator of Shramik Seva.`
+• **"Company"**, **"we"**, **"us"** refers to S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED, the operator of Shramik Seva.`
         },
         {
             title: "3. Eligibility",
@@ -87,7 +88,7 @@ Employers using the Platform for business purposes represent that they have the 
         },
         {
             title: "8. Intellectual Property",
-            content: `• All content, design, trademarks, logos, and software on the Platform are the property of SDR Security or its licensors
+            content: `• All content, design, trademarks, logos, and software on the Platform are the property of S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED or its licensors
 • Users are granted a limited, non-exclusive, non-transferable licence to use the Platform for its intended purpose
 • User-generated content (profiles, job posts) remains the property of the respective user, but users grant us a licence to display and distribute such content on the Platform
 • Users may not copy, modify, distribute, or reverse-engineer any part of the Platform`
@@ -116,7 +117,7 @@ Employers using the Platform for business purposes represent that they have the 
         },
         {
             title: "12. Indemnification",
-            content: `You agree to indemnify and hold harmless SDR Security, its directors, employees, and partners from any claims, damages, losses, or expenses (including legal fees) arising out of:
+            content: `You agree to indemnify and hold harmless S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED, its directors, employees, and partners from any claims, damages, losses, or expenses (including legal fees) arising out of:
 
 • Your use or misuse of the Platform
 • Your violation of these Terms
@@ -160,7 +161,7 @@ Any legal proceedings shall be subject to the exclusive jurisdiction of the cour
             title: "17. Contact Information",
             content: `For queries, complaints, or legal notices:
 
-SDR Security (Shramik Seva)
+S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED (Shramik Seva)
 33/A, Manoranjan Roy Chowdhury Road,
 Kolkata, West Bengal, India
 
@@ -176,19 +177,7 @@ Business Hours: Monday – Saturday, 9:00 AM – 6:00 PM IST`
                 <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] animate-pulse" />
             </div>
 
-            <nav className="sticky top-0 w-full bg-background/60 backdrop-blur-xl border-b border-border z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <Link href="/" className="flex items-center gap-2 group">
-                        <img src="/logo.png" alt="Shramik Seva" className="w-10 h-10 object-contain drop-shadow-sm group-hover:scale-105 transition-transform" />
-                        <span className="text-2xl font-bold bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent tracking-tight">
-                            Shramik Seva
-                        </span>
-                    </Link>
-                    <Button variant="ghost" className="gap-2" onClick={() => router.back()}>
-                        <ArrowLeft className="w-4 h-4" /> Back
-                    </Button>
-                </div>
-            </nav>
+      <PublicNavbar showBack />
 
             <section className="relative pt-16 pb-8 sm:pt-24 sm:pb-12 px-4 sm:px-6 lg:px-8 z-10">
                 <div className="max-w-4xl mx-auto text-center">
@@ -239,7 +228,7 @@ Business Hours: Monday – Saturday, 9:00 AM – 6:00 PM IST`
 
             <footer className="border-t border-border py-8 px-4 sm:px-6 lg:px-8 bg-card/40 relative z-10 mt-12">
                 <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <p className="text-sm text-muted-foreground">© 2026 Shramik Seva. All Rights Reserved. A subsidiary of SDR Security.</p>
+                    <p className="text-sm text-muted-foreground">© 2026 Shramik Seva. All Rights Reserved. A subsidiary of S D R SECURITY MANAGEMENT AND SERVICES PRIVATE LIMITED.</p>
                     <div className="flex gap-6 text-sm">
                         <Link href="/privacy-policy" className="text-muted-foreground hover:text-primary transition-colors">Privacy Policy</Link>
                         <Link href="/refund-policy" className="text-muted-foreground hover:text-primary transition-colors">Refund Policy</Link>

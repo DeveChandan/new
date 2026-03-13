@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { apiClient } from "@/lib/api"
 import { setAuthToken, setUser } from "@/lib/auth"
+import { useAuth } from "@/hooks/use-auth"
 import { ArrowRight, Loader2, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from 'next-intl'
@@ -30,6 +31,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [countdown, setCountdown] = useState(0)
 
+  const { user, isLoading } = useAuth()
+
   // Timer effect for OTP resend
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -38,6 +41,32 @@ export default function LoginPage() {
     }
     return () => clearTimeout(timer);
   }, [countdown]);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!isLoading && user) {
+      if (returnUrl) {
+        router.push(returnUrl)
+      } else if (user.role === "admin") {
+        router.push("/admin/dashboard")
+      } else if (user.role === "employer") {
+        router.push("/dashboard/employer")
+      } else {
+        router.push("/jobs")
+      }
+    }
+  }, [user, isLoading, router, returnUrl])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  // If user is already logged in, don't show the form (prevents flash)
+  if (user) return null;
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { apiClient } from "@/lib/api"
 import { setAuthToken, setUser } from "@/lib/auth"
+import { useAuth } from "@/hooks/use-auth"
 import { ArrowRight, Briefcase, Users, Loader2, Filter, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from 'next-intl'
@@ -33,6 +34,8 @@ function RegisterContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [countdown, setCountdown] = useState(0)
 
+  const { user, isLoading } = useAuth()
+
   // Timer effect for OTP resend
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -41,6 +44,30 @@ function RegisterContent() {
     }
     return () => clearTimeout(timer);
   }, [countdown]);
+
+  // Redirect if already authenticated
+  React.useEffect(() => {
+    if (!isLoading && user) {
+      if (user.role === "admin") {
+        router.push("/admin/dashboard")
+      } else if (user.role === "employer") {
+        router.push("/dashboard/employer")
+      } else {
+        router.push("/jobs")
+      }
+    }
+  }, [user, isLoading, router])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  // If user is already logged in, don't show the form
+  if (user) return null;
 
   const [formData, setFormData] = useState({
     name: "",
