@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input" // Import Input component
 import { useTranslations } from 'next-intl'
 import { useTranslationLocale } from '@/hooks/useTranslation' // Import translation hook
 import { NotificationBell } from '@/components/NotificationBell' // Import NotificationBell
+import { useNotification } from "@/contexts/NotificationContext"
 
 export default function WorkerDashboardPage() {
   const t = useTranslations('Dashboard.worker')
@@ -47,8 +48,10 @@ export default function WorkerDashboardPage() {
   const [showAllApplicationsModal, setShowAllApplicationsModal] = useState(false)
   const [activeTab, setActiveTab] = useState("applied")
   const { locale } = useTranslationLocale() // Get current locale for translation
+  const { socket, isTabVisible } = useNotification()
 
   const fetchAssignedJobs = async () => {
+    if (document.visibilityState !== 'visible') return;
     try {
       setLoading(true) // Set loading to true when fetching starts
       const data = (await apiClient.getAssignedJobs(locale)) as any[] // Pass locale for translation
@@ -69,6 +72,7 @@ export default function WorkerDashboardPage() {
     }
 
     const fetchDashboardData = async () => {
+      if (document.visibilityState !== 'visible') return;
       try {
         const data = await apiClient.getWorkerDashboard()
         setDashboardData(data)
@@ -88,27 +92,24 @@ export default function WorkerDashboardPage() {
     }
   }, [user, locale, authLoading, router])
 
-  // Separate socket effect — only reconnects when the user changes (not locale/authLoading)
+  // Use centralized socket effect
   useEffect(() => {
-    if (!user?._id) return;
+    if (!user?._id || !socket) return;
 
     const fetchDashboardData = async () => {
+      if (document.visibilityState !== 'visible') return;
       try {
         const data = await apiClient.getWorkerDashboard()
         setDashboardData(data)
       } catch (_) { }
     }
 
-    const socket = io(API_ROOT_URL, { path: '/api/socket.io', withCredentials: true })
-    socket.emit("joinUserRoom", `user:${user._id}`)
-    socket.on("notification:new", () => {
-      fetchDashboardData()
-    })
+    socket.on("notification:new", fetchDashboardData)
 
     return () => {
-      socket.disconnect()
+      socket.off("notification:new", fetchDashboardData)
     }
-  }, [user?._id])
+  }, [user?._id, socket])
 
   const handleLogout = () => {
     clearAuthToken()

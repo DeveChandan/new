@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/popover"
 import { DocumentUploadSection } from "@/components/DocumentUploadSection"
 import { useTranslations } from "next-intl"
+import { ChangePasswordModal } from "@/components/profile/ChangePasswordModal"
 import { workerTypeSkills } from "@/lib/worker-data"
 import { INDIAN_STATES, EMPLOYEE_COUNT_OPTIONS, BUSINESS_TYPES } from "@/lib/constants"
 
@@ -61,6 +62,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null)
   const [formData, setFormData] = useState<any>(null)
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -1266,14 +1268,26 @@ export default function ProfilePage() {
               )}
               <Button
                 variant="outline"
-                className="w-full h-14 bg-background border-border/50 rounded-2xl font-bold hover:bg-muted transition-all"
+                className="w-full h-14 bg-background border-border/50 rounded-2xl font-bold hover:bg-primary/10 hover:text-primary transition-all"
               >
                 {t("downloadCV")}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full h-14 bg-background border-border/50 rounded-2xl font-bold hover:bg-primary/10 hover:text-primary transition-all text-primary"
+                onClick={() => setIsPasswordModalOpen(true)}
+              >
+                <ShieldCheck className="w-4 h-4 mr-2" />
+                {t("change_password") || "Change Password"}
               </Button>
             </div>
           </div>
         </div>
-      </div >
-    </div >
+      </div>
+      <ChangePasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
+    </div>
   )
 }

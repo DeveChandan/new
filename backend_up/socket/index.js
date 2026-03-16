@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { corsOptions } = require('../middleware/security');
 
 let io;
 
@@ -14,10 +15,7 @@ const MAX_EVENTS_PER_WINDOW = 120; // 120 events per minute
 const initSocket = (httpServer) => {
   io = require('socket.io')(httpServer, {
     path: '/api/socket.io',
-    cors: {
-      origin: '*',
-      methods: ['GET', 'POST'],
-    },
+    cors: corsOptions,
   });
 
   // Socket authentication middleware
@@ -170,31 +168,95 @@ const initSocket = (httpServer) => {
     });
 
     // Message status updates
-    socket.on('message:read', ({ messageId, conversationId, senderId }) => {
+    socket.on('message:read', async ({ messageId, conversationId, senderId }) => {
       if (userId) {
-        // Emit to sender that their message was read
-        io.to(`user:${senderId}`).emit('message:read', {
-          messageId,
-          conversationId,
-          readBy: userId,
-        });
+        try {
+          const Message = require('../models/Message');
+          const message = await Message.findByIdAndUpdate(messageId, { status: 'read' });
 
-        // Also emit to conversation room
-        socket.to(conversationId).emit('messageRead', { messageId });
+          const messageBody = {
+            messageId: messageId.toString(),
+            conversationId: conversationId.toString(),
+            readBy: userId.toString(),
+            clientMessageId: message?.clientMessageId
+          };
+
+          // Emit to sender that their message was read (personal room)
+          const personalRoom = `user:${senderId.toString()}`;
+          const isOnline = onlineUsers.has(senderId.toString());
+          io.to(personalRoom).emit('message:read', messageBody);
+          console.log(`✅ Status READ broadcast to ${personalRoom} (Online: ${isOnline}) for msg: ${messageId}`);
+
+          // Also emit to conversation room (everyone in chat)
+          io.to(conversationId.toString()).emit('message:read', messageBody);
+          
+          // Legacy support
+          io.to(conversationId.toString()).emit('messageRead', { messageId: messageId.toString() });
+        } catch (error) {
+          console.error('Error updating message read status via socket:', error);
+        }
       }
     });
 
-    socket.on('message:delivered', ({ messageId, conversationId }) => {
-      socket.to(conversationId).emit('message:delivered', { messageId });
+    socket.on('message:delivered', async ({ messageId, conversationId }) => {
+      try {
+        const Message = require('../models/Message');
+        // Only update if current status is 'sent' to avoid downgrading from 'read'
+        const message = await Message.findOneAndUpdate(
+          { _id: messageId, status: 'sent' },
+          { status: 'delivered' },
+          { new: true }
+        );
+
+        if (message) {
+            const senderId = message.sender.toString();
+            const msgId = message._id.toString();
+            const convId = conversationId.toString();
+            const clientMsgId = message.clientMessageId;
+
+            const messageBody = { messageId: msgId, conversationId: convId, clientMessageId: clientMsgId };
+
+            const personalRoom = `user:${senderId}`;
+            const isOnline = onlineUsers.has(senderId);
+
+            // Emit to conversation room
+            io.to(convId).emit('message:delivered', messageBody);
+            
+            // Legacy support
+            io.to(convId).emit('messageDelivered', { messageId: msgId });
+            
+            // Emit to sender's personal room
+            io.to(personalRoom).emit('message:delivered', messageBody);
+            io.to(personalRoom).emit('messageDelivered', { messageId: msgId });
+            console.log(`✅ Status DELIVERED broadcast to ${personalRoom} (Online: ${isOnline}) for msg: ${msgId}`);
+        }
+      } catch (error) {
+        console.error('Error updating message delivered status via socket:', error);
+      }
     });
 
     // Legacy message status events
-    socket.on('markMessageDelivered', ({ conversationId, messageId }) => {
-      socket.to(conversationId).emit('messageDelivered', { messageId });
+    socket.on('markMessageDelivered', async ({ conversationId, messageId }) => {
+        try {
+            const Message = require('../models/Message');
+            await Message.findOneAndUpdate(
+                { _id: messageId, status: 'sent' },
+                { status: 'delivered' }
+            );
+            socket.to(conversationId).emit('messageDelivered', { messageId });
+        } catch (error) {
+            console.error('Error in legacy delivered event:', error);
+        }
     });
 
-    socket.on('markMessageRead', ({ conversationId, messageId }) => {
-      socket.to(conversationId).emit('messageRead', { messageId });
+    socket.on('markMessageRead', async ({ conversationId, messageId }) => {
+        try {
+            const Message = require('../models/Message');
+            await Message.findByIdAndUpdate(messageId, { status: 'read' });
+            socket.to(conversationId).emit('messageRead', { messageId });
+        } catch (error) {
+            console.error('Error in legacy read event:', error);
+        }
     });
 
     // Notification read

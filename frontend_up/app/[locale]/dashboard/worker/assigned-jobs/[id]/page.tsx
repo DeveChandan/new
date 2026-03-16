@@ -71,7 +71,7 @@ export default function AssignedJobDetailsPage() {
   }
 
   const fetchWorkLogData = async () => {
-    if (!user) return;
+    if (!user || document.visibilityState !== 'visible') return;
     try {
       const workLogData = (await apiClient.getWorkLogByJob(jobId)) as any
       setWorkLog(workLogData)
@@ -88,7 +88,7 @@ export default function AssignedJobDetailsPage() {
   }
 
   const fetchAllWorkLogs = async () => {
-    if (!user) return;
+    if (!user || document.visibilityState !== 'visible') return;
     try {
       const allLogsData = (await apiClient.getWorkLogsForWorker()) as any;
       const jobLogs = allLogsData.filter((log: any) => log.job._id === jobId);
@@ -105,6 +105,7 @@ export default function AssignedJobDetailsPage() {
     }
 
     const fetchDetails = async () => {
+      if (document.visibilityState !== 'visible') return;
       try {
         setLoading(true)
         const jobData = (await apiClient.getJobById(jobId)) as any

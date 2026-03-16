@@ -36,6 +36,19 @@ function RegisterContent() {
 
   const { user, isLoading } = useAuth()
 
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    mobile: "",
+    password: "",
+    skills: [] as string[],
+    companyName: "",
+    workerType: "",
+    isFresher: false,
+    experience: "",
+    gender: "",
+  })
+
   // Timer effect for OTP resend
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -69,18 +82,6 @@ function RegisterContent() {
   // If user is already logged in, don't show the form
   if (user) return null;
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    mobile: "",
-    password: "",
-    skills: [] as string[],
-    companyName: "",
-    workerType: "",
-    isFresher: false,
-    experience: "",
-    gender: "",
-  })
 
   const availableSkills = formData.workerType ? workerTypeSkills[formData.workerType] : [];
 

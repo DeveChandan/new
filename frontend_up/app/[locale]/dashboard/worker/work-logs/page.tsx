@@ -58,6 +58,7 @@ export default function WorkerWorkLogsPage() {
     }
 
     const fetchWorkLogs = async () => {
+      if (document.visibilityState !== 'visible') return;
       try {
         setLoading(true)
         const data = (await apiClient.getWorkLogsForWorker()) as any

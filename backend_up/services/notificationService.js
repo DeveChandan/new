@@ -88,6 +88,10 @@ class NotificationService {
         try {
             const user = await User.findById(userId).select('+pushToken');
 
+            if (!user?.pushToken) {
+                console.log(`[NotificationService] No push token for user ${userId} (Possibly web/emulator)`);
+            }
+
             // Validate that we have a valid Expo push token
             if (user && user.pushToken && Expo.isExpoPushToken(user.pushToken)) {
                 const message = {
@@ -96,6 +100,7 @@ class NotificationService {
                     title: notification.title,
                     body: notification.message,
                     data: { actionUrl: notification.actionUrl, relatedId: notification.relatedId, type: notification.type },
+                    priority: 'high',
                 };
 
                 // The Expo SDK automatically creates chunks that comply with their API limits
@@ -162,6 +167,34 @@ class NotificationService {
             return notification;
         } catch (error) {
             console.error('Error marking notification as read:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Mark notifications as read by related ID (e.g. conversationId)
+     * @param {String} relatedId - Related ID
+     * @param {String} userId - User ID
+     * @returns {Promise<Number>} Number of updated notifications
+     */
+    async markAsReadByRelatedId(relatedId, userId) {
+        try {
+            const result = await Notification.updateMany(
+                { relatedId, userId, isRead: false },
+                { isRead: true }
+            );
+
+            if (result.modifiedCount > 0) {
+                // Emit socket event for real-time update
+                const io = getIo();
+                const userRoom = `user:${userId.toString()}`;
+                // We emit a special generic read event to trigger count refresh
+                io.to(userRoom).emit('notification:read', { relatedId });
+            }
+
+            return result.modifiedCount;
+        } catch (error) {
+            console.error('Error marking notifications as read by relatedId:', error);
             throw error;
         }
     }

@@ -134,6 +134,10 @@
             "weeksAgo": "{count} weeks ago",
             "monthsAgo": "{count} months ago"
         },
+        "dates": {
+            "today": "Today",
+            "yesterday": "Yesterday"
+        },
         "locationTBA": "Location TBA",
         "companyFallback": "Company",
         "about_me": "About Me",
@@ -893,7 +897,17 @@
         "selectJobToHire": "Select Job To Hire",
         "backToJobs": "Back To Jobs",
         "selectSkills": "Select Skills",
-        "noWorkerTypeSelected": "No worker type selected"
+        "noWorkerTypeSelected": "No worker type selected",
+        "change_password": "Change Password",
+        "new_password": "New Password",
+        "confirm_password": "Confirm New Password",
+        "enter_new_password": "Enter new password",
+        "confirm_new_password": "Confirm new password",
+        "password_updated_success": "Password updated successfully!",
+        "password_too_short": "Password must be at least 6 characters long",
+        "passwords_do_not_match": "Passwords do not match",
+        "failed_to_update_password": "Failed to update password",
+        "save_changes_btn": "Save Changes"
     },
     "Messages": {
         "title": "Messages",

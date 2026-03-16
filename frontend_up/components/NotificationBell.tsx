@@ -23,10 +23,7 @@ export function NotificationBell() {
 
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
-        if (open) {
-            // When the popover opens, we can refetch to ensure the list is up-to-date
-            fetchUnreadCount();
-        }
+        // No fetchUnreadCount here; unreadCount is kept in sync globally via sockets
     }
 
     return (

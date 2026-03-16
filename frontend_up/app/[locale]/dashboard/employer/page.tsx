@@ -17,12 +17,12 @@ import { Skeleton } from "@/components/ui/skeleton" // Import Skeleton
 import io from "socket.io-client"
 import { useTranslations } from 'next-intl'
 import { NotificationBell } from '@/components/NotificationBell' // Import NotificationBell
+import { useNotification } from "@/contexts/NotificationContext"
 import { WorklogAccessModal } from "@/components/WorklogAccessModal"
 import SubscriptionUsageCard from '@/components/SubscriptionUsageCard'
 
 
-// Socket will be initialized in a more controlled way or using API_ROOT_URL
-const socket = io(API_ROOT_URL, { path: '/api/socket.io', withCredentials: true })
+// Local socket initialization removed in favor of global NotificationContext
 
 export default function EmployerDashboardPage() {
   const t = useTranslations('Dashboard.employer')
@@ -45,9 +45,11 @@ export default function EmployerDashboardPage() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
   const [showAccessModal, setShowAccessModal] = useState(false);
+  const { socket } = useNotification();
 
 
   const fetchDashboardData = useCallback(async () => {
+    if (document.visibilityState !== 'visible') return;
     try {
       setLoading(true);
       setError("");
@@ -122,6 +124,7 @@ export default function EmployerDashboardPage() {
       fetchDashboardData();
 
       const handleWorkLogUpdate = (data: any) => {
+        if (document.visibilityState !== 'visible') return;
         const updatedLog = data.workLog || data;
         const jobId = data.jobId || updatedLog.job;
         setWorkLogs((prevWorkLogs: Record<string, any[]>) => {
@@ -140,22 +143,19 @@ export default function EmployerDashboardPage() {
         fetchDashboardData();
       };
 
-      socket.on("connect", () => { });
-      socket.on("jobUpdated", fetchDashboardData);
-      socket.on("jobCreated", fetchDashboardData);
-      socket.on('workLogUpdated', handleWorkLogUpdate);
+      if (socket) {
+        socket.on("jobUpdated", fetchDashboardData);
+        socket.on("jobCreated", fetchDashboardData);
+        socket.on('workLogUpdated', handleWorkLogUpdate);
 
-      // Join a room specific to the employer's ID to receive targeted updates
-      socket.emit('joinUserRoom', `user:${user._id}`);
-
-      return () => {
-        socket.off("jobUpdated", fetchDashboardData);
-        socket.off("jobCreated", fetchDashboardData);
-        socket.off("connect");
-        socket.off('workLogUpdated', handleWorkLogUpdate);
-      };
+        return () => {
+          socket.off("jobUpdated", fetchDashboardData);
+          socket.off("jobCreated", fetchDashboardData);
+          socket.off('workLogUpdated', handleWorkLogUpdate);
+        };
+      }
     }
-  }, [user, authLoading, router, fetchDashboardData]);
+  }, [user, authLoading, router, fetchDashboardData, socket]);
 
   const handleLogout = () => {
     clearAuthToken()

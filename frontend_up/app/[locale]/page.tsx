@@ -49,6 +49,7 @@ export default function LandingPage() {
 
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
   const [loadingTestimonials, setLoadingTestimonials] = useState(true)
+  const [playStoreLink, setPlayStoreLink] = useState('https://drive.google.com/file/d/1LqQiKvRKc6YZQt_AR1xNPD12g569KJgc/view?usp=sharing')
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -78,8 +79,23 @@ export default function LandingPage() {
       }
     }
 
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/site/settings`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.playStoreLink) {
+            setPlayStoreLink(data.playStoreLink)
+          }
+        }
+      } catch {
+        // Fallback already set
+      }
+    }
+
     fetchStats()
     fetchTestimonials()
+    fetchSettings()
   }, [])
 
   const containerVariants: Variants = {
@@ -511,7 +527,7 @@ export default function LandingPage() {
 
       {/* App Banner Section */}
       <section className="py-8 px-4 sm:px-6 lg:px-8 relative z-10 my-10">
-        <div className="max-w-5xl mx-auto relative group cursor-pointer" onClick={() => window.open('https://drive.google.com/file/d/1LqQiKvRKc6YZQt_AR1xNPD12g569KJgc/view?usp=sharing', '_blank')}>
+        <div className="max-w-5xl mx-auto relative group cursor-pointer" onClick={() => window.open(playStoreLink, '_blank')}>
           {/* Animated Glow Effect */}
           <div className="absolute inset-0 bg-gradient-to-r from-primary/30 to-accent/30 rounded-3xl blur-xl opacity-20 group-hover:opacity-60 transition-opacity duration-500" />
 

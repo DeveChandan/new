@@ -199,6 +199,13 @@ export class APIClient {
     return this.request("/users/dashboard/worker")
   }
 
+  async changePassword(newPassword: string): Promise<any> {
+    return this.request("/users/change-password", {
+      method: "PUT",
+      body: JSON.stringify({ newPassword }),
+    })
+  }
+
   async getEmployerDashboard() {
     return this.request("/users/dashboard/employer")
   }
@@ -376,7 +383,7 @@ export class APIClient {
     return this.request(`/conversations/${userId}`)
   }
 
-  async sendMessage(data: { conversationId: string; sender: string; text: string }) {
+  async sendMessage(data: { conversationId: string; sender: string; text: string; clientMessageId?: string }) {
     return this.request("/messages", {
       method: "POST",
       body: JSON.stringify(data),
@@ -1036,6 +1043,18 @@ export class APIClient {
   async deleteTestimonial(id: string) {
     return this.request(`/admin/testimonials/${id}`, {
       method: "DELETE",
+    });
+  }
+
+  // System Settings
+  async getSettings(): Promise<Record<string, any>> {
+    return this.request('/site/settings');
+  }
+
+  async updateSetting(key: string, value: any): Promise<any> {
+    return this.request(`/site/settings/${key}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ value })
     });
   }
 }

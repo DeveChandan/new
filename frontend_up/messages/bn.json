@@ -134,6 +134,10 @@
             "weeksAgo": "{count} সপ্তাহ আগে",
             "monthsAgo": "{count} মাস আগে"
         },
+        "dates": {
+            "today": "আজ",
+            "yesterday": "গতকাল"
+        },
         "locationTBA": "স্থান নির্ধারিত হয়নি",
         "companyFallback": "কোম্পানি",
         "about_me": "আমার সম্পর্কে",
@@ -893,7 +897,17 @@
         "selectJobToHire": "নিয়োগের জন্য চাকরি নির্বাচন করুন",
         "backToJobs": "চাকরিতে ফিরে যান",
         "selectSkills": "দক্ষতা নির্বাচন করুন",
-        "noWorkerTypeSelected": "কোন কর্মীর ধরন নির্বাচন করা হয়নি"
+        "noWorkerTypeSelected": "কোন কর্মীর ধরন নির্বাচন করা হয়নি",
+        "change_password": "পাসওয়ার্ড পরিবর্তন করুন",
+        "new_password": "নতুন পাসওয়ার্ড",
+        "confirm_password": "নতুন পাসওয়ার্ড নিশ্চিত করুন",
+        "enter_new_password": "নতুন পাসওয়ার্ড দিন",
+        "confirm_new_password": "নতুন পাসওয়ার্ড নিশ্চিত করুন",
+        "password_updated_success": "পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে!",
+        "password_too_short": "পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে",
+        "passwords_do_not_match": "পাসওয়ার্ড মিলছে না",
+        "failed_to_update_password": "পাসওয়ার্ড আপডেট করতে ব্যর্থ হয়েছে",
+        "save_changes_btn": "পরিবর্তন সংরক্ষণ করুন"
     },
     "Messages": {
         "title": "বার্তা",

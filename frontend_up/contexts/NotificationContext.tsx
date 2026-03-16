@@ -40,9 +40,12 @@ interface NotificationContextType {
     showToast: (toast: Omit<Toast, "id">) => void;
     unreadCount: number;
     fetchUnreadCount: () => Promise<void>;
+    activeWorkLog: any;
+    fetchActiveWorkLog: () => Promise<void>;
     socket: Socket | null;
     isUserOnline: (userId: string) => boolean;
     checkOnlineStatus: (userId: string) => void;
+    isTabVisible: boolean;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -50,18 +53,41 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [activeWorkLog, setActiveWorkLog] = useState<any>(null);
     const [socket, setSocket] = useState<Socket | null>(null);
     const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+    const [isTabVisible, setIsTabVisible] = useState(true);
     const router = useRouter();
     const { user } = useAuth();
 
+    // Visibility Listener
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            setIsTabVisible(document.visibilityState === 'visible');
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
+
     const fetchUnreadCount = useCallback(async () => {
-        if (!isAuthenticated()) return;
+        if (!isAuthenticated() || document.visibilityState !== 'visible') return;
         try {
             const response: any = await apiClient.getUnreadNotificationCount();
             setUnreadCount(response.count || 0);
         } catch (error) {
             console.error("Error fetching unread count:", error);
+        }
+    }, [user]);
+
+    const fetchActiveWorkLog = useCallback(async () => {
+        if (!isAuthenticated() || user?.role !== 'worker' || document.visibilityState !== 'visible') return;
+        try {
+            const data: any = await apiClient.getWorkLogsForWorker();
+            // Assuming the API returns an array, find the one that is in-progress
+            const active = data.find((log: any) => log.status === 'in-progress' || log.status === 'pending');
+            setActiveWorkLog(active || null);
+        } catch (error) {
+            console.error("Error fetching active work log:", error);
         }
     }, [user]);
 
@@ -149,19 +175,39 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             console.log('❌ Global Socket disconnected');
         });
 
+        newSocket.on('receiveMessage', (message: { _id: string; conversationId: string; sender: string }) => {
+            console.log('📩 Global Message Received (ReceiveMessage):', message);
+            // Emit delivered event back to sender
+            if (message.sender !== user._id) {
+                newSocket.emit('message:delivered', { 
+                    messageId: message._id, 
+                    conversationId: message.conversationId 
+                });
+            }
+        });
+
+        newSocket.on('message:new', (message: { _id: string; conversationId: string; sender: string }) => {
+            console.log('📩 Global Message Received (Message:New):', message);
+            // Emit delivered event back to sender
+            if (message.sender !== user._id) {
+                newSocket.emit('message:delivered', { 
+                    messageId: message._id, 
+                    conversationId: message.conversationId 
+                });
+            }
+        });
+
         newSocket.on('notification:new', (notification: { title: string; message: string; actionUrl: string; type: NotificationType }) => {
             console.log('📬 Received notification:', notification);
+            // Always show toast if it's high priority, but maybe only update count if visible?
+            // Actually, unread count should update in background, but data refresh should be guarded.
             showToast({
                 title: notification.title,
                 message: notification.message,
                 actionUrl: notification.actionUrl,
                 type: notification.type,
             });
-            setUnreadCount(prevCount => {
-                const newCount = prevCount + 1;
-                console.log(`🔔 Unread count updated: ${prevCount} → ${newCount}`);
-                return newCount;
-            });
+            setUnreadCount(prevCount => prevCount + 1);
         });
 
         newSocket.on('notification:read', () => {
@@ -170,6 +216,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
         newSocket.on('notification:allRead', () => {
             setUnreadCount(0);
+        });
+
+        newSocket.on('workLogUpdated', () => {
+            if (document.visibilityState === 'visible') {
+                fetchActiveWorkLog();
+            }
         });
 
         // Online status listeners
@@ -189,7 +241,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             newSocket.disconnect();
             setSocket(null);
         };
-    }, [user, showToast, fetchUnreadCount]);
+    }, [user, showToast, fetchUnreadCount, fetchActiveWorkLog]);
 
     const checkOnlineStatus = useCallback((userId: string) => {
         if (socket) {
@@ -225,7 +277,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }, []);
 
     return (
-        <NotificationContext.Provider value={{ showToast, unreadCount, fetchUnreadCount, socket, isUserOnline, checkOnlineStatus }}>
+        <NotificationContext.Provider value={{
+            showToast,
+            unreadCount,
+            fetchUnreadCount,
+            activeWorkLog,
+            fetchActiveWorkLog,
+            socket,
+            isUserOnline,
+            checkOnlineStatus,
+            isTabVisible
+        }}>
             {children}
         </NotificationContext.Provider>
     );

@@ -33,6 +33,7 @@ interface Message {
   text: string
   createdAt: string
   status?: 'sent' | 'delivered' | 'read'
+  clientMessageId?: string
 }
 
 export default function MessagesPage() {
@@ -92,39 +93,47 @@ export default function MessagesPage() {
     }
   }, [user, authLoading, router, fetchConversations]);
 
-  // Fetch messages when conversation is selected
+  // Fetch messages when conversation is selected - Fixed dependencies
   useEffect(() => {
     if (conversationId && user?._id) {
       fetchMessages(conversationId)
       setShowConversationListOnMobile(false)
+    } else {
+      setMessages([])
+      setShowConversationListOnMobile(true)
+    }
+  }, [conversationId, user?._id, fetchMessages]);
 
-      // Check online status of the other member
+  // Handle online status check separately
+  useEffect(() => {
+    if (conversationId && user?._id && conversations.length > 0) {
       const convo = conversations.find(c => c._id === conversationId);
       const other = convo?.members.find(m => m._id !== user._id);
       if (other?._id) {
         checkOnlineStatus(other._id);
       }
-    } else {
-      setMessages([])
-      setShowConversationListOnMobile(true)
     }
-  }, [conversationId, user?._id, fetchMessages, conversations, checkOnlineStatus]);
+  }, [conversationId, user?._id, conversations, checkOnlineStatus]);
 
-  // Mark messages as read when viewing conversation
-  useEffect(() => {
-    if (!conversationId || !user?._id || messages.length === 0) return;
+    // Mark messages as read when viewing conversation
+    const markAsRead = useCallback(async () => {
+        if (!conversationId || !user?._id || messages.length === 0) return;
 
-    // Debounce to avoid excessive API calls
-    const timer = setTimeout(async () => {
-      try {
-        await apiClient.markMessagesAsRead(conversationId);
-      } catch (err) {
-        console.error('Error marking messages as read:', err);
-      }
-    }, 1000); // Wait 1 second before marking as read
+        // Check if there are any unread messages from the OTHER user
+        const hasUnread = messages.some(m => m.sender !== user._id && m.status !== 'read');
+        if (!hasUnread) return;
 
-    return () => clearTimeout(timer);
-  }, [conversationId, user?._id, messages.length]);
+        try {
+            await apiClient.markMessagesAsRead(conversationId);
+        } catch (err) {
+            console.error('Error marking messages as read:', err);
+        }
+    }, [conversationId, user?._id, messages]);
+
+    useEffect(() => {
+        const timer = setTimeout(markAsRead, 1000);
+        return () => clearTimeout(timer);
+    }, [markAsRead]);
 
   // Socket listeners
   useEffect(() => {
@@ -152,9 +161,21 @@ export default function MessagesPage() {
 
       // Update messages if viewing this conversation
       if (newMessage.conversationId === conversationId) {
+        // Mark as read immediately via socket
+        if (newMessage.sender !== user?._id) {
+            socket.emit('message:read', { 
+                messageId: newMessage._id, 
+                conversationId: newMessage.conversationId,
+                senderId: newMessage.sender
+            });
+        }
+
         setMessages(prev => {
-          // Check if message already exists to prevent duplicates
-          const exists = prev.some(msg => msg._id === newMessage._id);
+          // Check if message already exists to prevent duplicates via ID or clientMessageId
+          const exists = prev.some(msg => 
+            msg._id === newMessage._id || 
+            (newMessage.clientMessageId && msg.clientMessageId === newMessage.clientMessageId)
+          );
           if (exists) return prev;
           return [...prev, newMessage];
         });
@@ -189,17 +210,29 @@ export default function MessagesPage() {
     });
 
     // Message status updates
-    socket.on('messageDelivered', ({ messageId }: { messageId: string }) => {
-      setMessages(prev => prev.map(msg =>
-        msg._id === messageId ? { ...msg, status: 'delivered' as const } : msg
-      ));
-    });
+    const updateMessageStatus = (data: { messageId?: string, clientMessageId?: string, status: 'delivered' | 'read' }) => {
+      const { messageId, clientMessageId, status } = data;
+      setMessages(prev => prev.map(msg => {
+        const isMatch = msg._id === messageId || (clientMessageId && msg.clientMessageId === clientMessageId);
+        if (isMatch) {
+          // Don't downgrade status (e.g., if it's already 'read', don't set to 'delivered')
+          const statusWeights = { 'sent': 1, 'delivered': 2, 'read': 3 };
+          const currentWeight = statusWeights[msg.status as keyof typeof statusWeights] || 1;
+          const newWeight = statusWeights[status as keyof typeof statusWeights];
+          
+          if (newWeight > currentWeight) {
+            return { ...msg, status };
+          }
+        }
+        return msg;
+      }));
+    };
 
-    socket.on('messageRead', ({ messageId }: { messageId: string }) => {
-      setMessages(prev => prev.map(msg =>
-        msg._id === messageId ? { ...msg, status: 'read' as const } : msg
-      ));
-    });
+    socket.on('messageDelivered', (data) => updateMessageStatus({ ...data, status: 'delivered' }));
+    socket.on('message:delivered', (data) => updateMessageStatus({ ...data, status: 'delivered' })); // Alias
+    
+    socket.on('messageRead', (data) => updateMessageStatus({ ...data, status: 'read' }));
+    socket.on('message:read', (data) => updateMessageStatus({ ...data, status: 'read' })); // Alias
 
     return () => {
       socket.off('receiveMessage', handleReceiveMessage);
@@ -219,9 +252,42 @@ export default function MessagesPage() {
     }
   }, [socket, conversations]);
 
-  // Auto-scroll to bottom
+  // Helper to format date for headers
+  const formatDateHeader = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return tCommon('dates.today');
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return tCommon('dates.yesterday');
+    } else {
+      return date.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+  };
+
+  // Group messages by date
+  const groupedMessages = useCallback(() => {
+    const groups: { date: string, messages: Message[] }[] = [];
+    messages.forEach(msg => {
+      const date = new Date(msg.createdAt).toDateString();
+      const existingGroup = groups.find(g => g.date === date);
+      if (existingGroup) {
+        existingGroup.messages.push(msg);
+      } else {
+        groups.push({ date, messages: [msg] });
+      }
+    });
+    return groups;
+  }, [messages]);
+
+  // Auto-scroll with specific behavior
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -246,13 +312,17 @@ export default function MessagesPage() {
     setError("")
     if (!newMessage.trim() || !user?._id || !conversationId) return
 
+    const text = newMessage.trim();
+    const tempId = Date.now().toString();
+
     setSending(true)
     try {
-      const sentMessage = (await apiClient.sendMessage({
+      await apiClient.sendMessage({
         conversationId: conversationId,
         sender: user._id,
-        text: newMessage,
-      })) as any
+        text: text,
+        clientMessageId: tempId
+      })
       // Don't add here - let the socket event handle it to avoid duplicates
       // The socket will emit 'receiveMessage' which will add it to the state
       setNewMessage("")
@@ -269,9 +339,9 @@ export default function MessagesPage() {
   }
 
   const handleBackToList = () => {
-    // Remove query params while preserving locale
-    const currentPath = window.location.pathname
-    router.push(currentPath)
+    // Navigate to /messages without query params. 
+    // next-intl's router.push will automatically preserve the current locale.
+    router.push("/messages")
     setShowConversationListOnMobile(true)
   }
 
@@ -451,68 +521,84 @@ export default function MessagesPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-8 max-h-[calc(100vh-300px)] scrollbar-gutter-stable bg-grid-white/[0.02] scroll-smooth">
+                <CardContent className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 max-h-[calc(100vh-320px)] scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent bg-[#e5ddd5] dark:bg-[#0b141a] relative">
+                  {/* WhatsApp Wallpaper Pattern */}
+                  <div className="absolute inset-0 opacity-[0.05] dark:opacity-[0.1] pointer-events-none" style={{ backgroundImage: 'url("https://w0.peakpx.com/wallpaper/580/630/HD-wallpaper-whatsapp-background-whatsapp-texture.jpg")', backgroundSize: '400px' }} />
+                  
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full">
                       <Loader2 className="w-8 h-8 animate-spin text-primary" />
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-                      <div className="w-20 h-20 bg-muted rounded-3xl flex items-center justify-center border border-border/50">
+                    <div className="flex flex-col items-center justify-center h-full text-center space-y-4 relative z-10">
+                      <div className="w-20 h-20 bg-background/50 backdrop-blur-md rounded-3xl flex items-center justify-center border border-border/50">
                         <MessageSquare className="w-10 h-10 text-muted-foreground/30" />
                       </div>
                       <p className="text-muted-foreground font-bold text-lg">No messages yet</p>
                     </div>
                   ) : (
-                    messages.map((message, idx) => {
-                      const isOwn = message.sender === user?._id;
-                      const showAvatar = idx === 0 || messages[idx - 1].sender !== message.sender;
+                    <div className="space-y-6 relative z-10">
+                      {groupedMessages().map((group) => (
+                        <div key={group.date} className="space-y-4">
+                          <div className="flex justify-center my-4">
+                            <span className="px-4 py-1.5 bg-background/80 dark:bg-muted/80 backdrop-blur-md text-[11px] font-bold uppercase tracking-widest text-muted-foreground rounded-lg shadow-sm border border-border/10">
+                              {formatDateHeader(group.messages[0].createdAt)}
+                            </span>
+                          </div>
+                          
+                          {group.messages.map((message, idx) => {
+                            const isOwn = message.sender === user?._id;
+                            const prevMessage = idx > 0 ? group.messages[idx - 1] : null;
+                            const showTail = !prevMessage || prevMessage.sender !== message.sender;
 
-                      return (
-                        <div
-                          key={message._id}
-                          className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}
-                        >
-                          <div className={`flex gap-3 max-w-[85%] sm:max-w-[70%] ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
-                            {!isOwn && (
-                              <div className={`w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20 shadow-sm transition-opacity duration-300 overflow-hidden ${showAvatar ? "opacity-100" : "opacity-0"}`}>
-                                {otherMember?.profilePicture ? (
-                                  <img src={otherMember.profilePicture} alt={otherMember?.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <User className="w-5 h-5 text-primary" />
-                                )}
+                            return (
+                              <div
+                                key={message._id}
+                                className={`flex flex-col ${isOwn ? "items-end" : "items-start"} mb-1`}
+                              >
+                                <div className={`relative max-w-[85%] sm:max-w-[75%] px-3 py-2 shadow-sm ${isOwn
+                                  ? "bg-[#dcf8c6] dark:bg-[#005c4b] text-[#303030] dark:text-[#e9edef] rounded-lg rounded-tr-none"
+                                  : "bg-white dark:bg-[#202c33] text-[#303030] dark:text-[#e9edef] rounded-lg rounded-tl-none"
+                                  }`}>
+                                  
+                                  {/* Custom WhatsApp-style Tail */}
+                                  {showTail && (
+                                    <div className={`absolute top-0 w-3 h-4 ${isOwn ? "-right-2 text-[#dcf8c6] dark:text-[#005c4b]" : "-left-2 text-white dark:text-[#202c33]"}`}>
+                                      <svg viewBox="0 0 8 13" preserveAspectRatio="none" className="w-full h-full fill-current">
+                                        {isOwn ? (
+                                          <path d="M0 0h8v13z" />
+                                        ) : (
+                                          <path d="M8 0H0v13z" />
+                                        )}
+                                      </svg>
+                                    </div>
+                                  )}
+
+                                  <div className="flex flex-col">
+                                    <p className="text-[14.5px] leading-[19px] whitespace-pre-wrap">{message.text}</p>
+                                    <div className="flex items-center justify-end gap-1 mt-1 -mb-0.5 ml-8 auto">
+                                      <span className="text-[10px] text-muted-foreground/60 dark:text-gray-400 font-medium whitespace-nowrap">
+                                        {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                      </span>
+                                      {isOwn && message.status && (
+                                        <div className="flex items-center">
+                                          {message.status === 'sent' && (
+                                            <Check className="w-3.5 h-3.5 text-muted-foreground/40" />
+                                          )}
+                                          {(message.status === 'delivered' || message.status === 'read') && (
+                                            <CheckCheck className={`w-3.5 h-3.5 ${message.status === 'read' ? 'text-[#53bdeb]' : 'text-muted-foreground/40'}`} />
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
-                            )}
-                            <div
-                              className={`p-4 sm:p-5 shadow-lg transition-all duration-300 group hover:scale-[1.01] ${isOwn
-                                ? "bg-primary text-primary-foreground rounded-[2rem] rounded-tr-sm shadow-primary/20"
-                                : "bg-muted/80 backdrop-blur-md text-foreground rounded-[2rem] rounded-tl-sm border border-border/50 shadow-black/5"
-                                }`}
-                            >
-                              <p className="text-sm sm:text-base font-medium leading-relaxed">{message.text}</p>
-                            </div>
-                          </div>
-                          <div className={`flex items-center gap-1.5 ${isOwn ? "justify-end mr-4" : "ml-14"}`}>
-                            <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">
-                              {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </p>
-                            {isOwn && message.status && (
-                              <div className="flex items-center">
-                                {message.status === 'sent' && (
-                                  <Check className="w-3 h-3 text-muted-foreground/50" />
-                                )}
-                                {message.status === 'delivered' && (
-                                  <CheckCheck className="w-3 h-3 text-muted-foreground/50" />
-                                )}
-                                {message.status === 'read' && (
-                                  <CheckCheck className="w-3 h-3 text-blue-500" />
-                                )}
-                              </div>
-                            )}
-                          </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })
+                      ))}
+                    </div>
                   )}
                   <div ref={messagesEndRef} />
                 </CardContent>

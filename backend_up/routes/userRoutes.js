@@ -18,7 +18,8 @@ const {
   updateSubscription,
   unlockWorkerProfile,
   updatePushToken,
-  checkMobile
+  checkMobile,
+  changePassword
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 const { admin } = require('../middleware/adminMiddleware');
@@ -47,5 +48,7 @@ router.put('/subscription', protect, admin, updateSubscription);
 router.post('/workers/:id/unlock', protect, requireActiveSubscription, checkDatabaseUnlockLimit, unlockWorkerProfile);
 
 router.put('/push-token', protect, updatePushToken);
+
+router.put('/change-password', protect, changePassword);
 
 module.exports = router;

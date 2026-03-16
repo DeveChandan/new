@@ -134,6 +134,10 @@
             "weeksAgo": "{count} सप्ताह पहले",
             "monthsAgo": "{count} महीने पहले"
         },
+        "dates": {
+            "today": "आज",
+            "yesterday": "कल"
+        },
         "locationTBA": "स्थान निश्चित नहीं है",
         "companyFallback": "कंपनी",
         "about_me": "मेरे बारे में",
@@ -893,7 +897,17 @@
         "selectJobToHire": "भर्ती के लिए नौकरी चुनें",
         "backToJobs": "नौकरियों पर वापस जाएं",
         "selectSkills": "कौशल चुनें",
-        "noWorkerTypeSelected": "कोई कार्यकर्ता प्रकार नहीं चुना गया"
+        "noWorkerTypeSelected": "कोई कार्यकर्ता प्रकार नहीं चुना गया",
+        "change_password": "पासवर्ड बदलें",
+        "new_password": "नया पासवर्ड",
+        "confirm_password": "नए पासवर्ड की पुष्टि करें",
+        "enter_new_password": "नया पासवर्ड दर्ज करें",
+        "confirm_new_password": "नया पासवर्ड कन्फर्म करें",
+        "password_updated_success": "पासवर्ड सफलतापूर्वक अपडेट किया गया!",
+        "password_too_short": "पासवर्ड कम से कम 6 वर्णों का होना चाहिए",
+        "passwords_do_not_match": "पासवर्ड मेल नहीं खाते",
+        "failed_to_update_password": "पासवर्ड अपडेट करने में विफल",
+        "save_changes_btn": "बदलें सहेजें"
     },
     "Messages": {
         "title": "संदेश",

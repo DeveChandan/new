@@ -21,7 +21,11 @@ import {
   StarHalf,
   Star as StarIcon,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Save,
+  Gamepad2,
+  Settings as SettingsIcon,
+  ExternalLink
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -71,6 +75,11 @@ export default function AdminTestimonialsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
 
+  // Settings state
+  const [settings, setSettings] = useState<any>({ playStoreLink: "" })
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [updatingSetting, setUpdatingSetting] = useState(false)
+
   const fetchTestimonials = useCallback(async () => {
     try {
       setLoading(true)
@@ -83,6 +92,18 @@ export default function AdminTestimonialsPage() {
     }
   }, [])
 
+  const fetchSettings = useCallback(async () => {
+    try {
+      setSettingsLoading(true)
+      const data = await apiClient.getSettings()
+      setSettings(data)
+    } catch (err: any) {
+      console.error("Failed to fetch settings:", err)
+    } finally {
+      setSettingsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!authLoading && (!user || user.role !== "admin")) {
       router.push("/auth/login")
@@ -90,8 +111,9 @@ export default function AdminTestimonialsPage() {
     }
     if (!authLoading) {
       fetchTestimonials()
+      fetchSettings()
     }
-  }, [authLoading, user, fetchTestimonials, router])
+  }, [authLoading, user, fetchTestimonials, fetchSettings, router])
 
   const handleOpenCreate = () => {
     setEditingTestimonial(null)
@@ -184,6 +206,18 @@ export default function AdminTestimonialsPage() {
     }
   }
 
+  const handleUpdateAppStoreLink = async () => {
+    try {
+      setUpdatingSetting(true)
+      await apiClient.updateSetting("playStoreLink", settings.playStoreLink)
+      alert("App Store link updated successfully!")
+    } catch (err: any) {
+      alert(err.message || "Failed to update setting")
+    } finally {
+      setUpdatingSetting(false)
+    }
+  }
+
   const renderStars = (rating: number) => {
     return (
       <div className="flex gap-0.5">
@@ -223,6 +257,58 @@ export default function AdminTestimonialsPage() {
           {error}
         </div>
       )}
+
+      {/* System Settings Section */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <SettingsIcon className="w-5 h-5 text-primary" />
+            <CardTitle className="text-lg">System Settings</CardTitle>
+          </div>
+          <CardDescription>Update global platform settings and links.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="playStoreLink" className="flex items-center gap-2">
+                <Gamepad2 className="w-4 h-4" /> Google Play Store URL
+              </Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input 
+                    id="playStoreLink"
+                    placeholder="https://play.google.com/store/apps/details?id=..."
+                    value={settings.playStoreLink}
+                    onChange={(e) => setSettings({ ...settings, playStoreLink: e.target.value })}
+                    className="pr-10"
+                  />
+                  {settings.playStoreLink && (
+                    <a 
+                      href={settings.playStoreLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+                <Button 
+                  onClick={handleUpdateAppStoreLink} 
+                  disabled={updatingSetting || settingsLoading}
+                  className="gap-2"
+                >
+                  {updatingSetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Link
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                This link will be updated in real-time on the landing page "Get it on Google Play" button.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {testimonials.length === 0 ? (
