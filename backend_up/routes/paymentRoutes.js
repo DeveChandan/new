@@ -22,6 +22,9 @@ router.post('/subscribe', protect, paymentController.createSubscription);
 // POST /api/payments/addon
 router.post('/addon', protect, paymentController.purchaseWorklogAddon);
 
+// GET /api/payments/preview
+router.get('/preview', protect, paymentController.getPaymentPreview);
+
 // --- Invoice Routes ---
 
 // GET /api/payments/invoices

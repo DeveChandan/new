@@ -17,6 +17,15 @@ interface SubscriptionPlan {
     features: string[]
 }
 
+interface PricingDetails {
+    basePrice: number;
+    upgradeCredit: number;
+    subtotal: number;
+    taxAmount: number;
+    totalAmount: number;
+    taxRate: number;
+}
+
 export default function CheckoutPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -24,12 +33,15 @@ export default function CheckoutPage() {
     const { user, isLoading: authLoading } = useAuth()
 
     const [plan, setPlan] = useState<SubscriptionPlan | null>(null)
+    const [pricingDetails, setPricingDetails] = useState<PricingDetails | null>(null)
     const [loading, setLoading] = useState(true)
     const [processing, setProcessing] = useState(false)
     const [error, setError] = useState("")
     const [agreedToTerms, setAgreedToTerms] = useState(false)
 
     useEffect(() => {
+        if (authLoading) return; // Wait for authentication check before fetching API
+
         const fetchPlan = async () => {
             try {
                 setLoading(true)
@@ -37,6 +49,27 @@ export default function CheckoutPage() {
                 const found = plans.find((p) => p.planKey === planKey)
                 if (found) {
                     setPlan(found)
+                    if (planKey !== "free") {
+                        try {
+                            const pricing = await apiClient.getPaymentPreview(planKey);
+                            setPricingDetails(pricing);
+                        } catch (err) {
+                            console.error("Failed to fetch payment preview", err);
+                            const gstAmount = Math.round(found.price * 0.18);
+                            setPricingDetails({
+                                basePrice: found.price,
+                                upgradeCredit: 0,
+                                subtotal: found.price,
+                                taxAmount: gstAmount,
+                                totalAmount: found.price + gstAmount,
+                                taxRate: 0.18
+                            });
+                        }
+                    } else {
+                        setPricingDetails({
+                            basePrice: 0, upgradeCredit: 0, subtotal: 0, taxAmount: 0, totalAmount: 0, taxRate: 0.18
+                        });
+                    }
                 } else {
                     setError("Invalid plan selected. Please go back and choose a plan.")
                 }
@@ -49,12 +82,13 @@ export default function CheckoutPage() {
         if (planKey) {
             fetchPlan()
         }
-    }, [planKey])
+    }, [planKey, authLoading])
 
-    const gstRate = 0.18
-    const basePrice = plan?.price || 0
-    const gstAmount = Math.round(basePrice * gstRate)
-    const totalAmount = basePrice + gstAmount
+    const basePrice = pricingDetails?.basePrice ?? (plan?.price || 0)
+    const upgradeCredit = pricingDetails?.upgradeCredit ?? 0
+    const subtotal = pricingDetails?.subtotal ?? basePrice
+    const gstAmount = pricingDetails?.taxAmount ?? Math.round(subtotal * 0.18)
+    const totalAmount = pricingDetails?.totalAmount ?? (subtotal + gstAmount)
 
     const handlePayment = async () => {
         if (!plan || !user) return
@@ -68,9 +102,13 @@ export default function CheckoutPage() {
                 return
             }
 
-            const orderId = `ORDER_${Date.now()}_${user._id || "web"}`
+            // Format: SS-WEB-XXXXXXXX-YYYYYY (max 22 chars, Paytm limit: 26)
+            // SS = ShramikSeva | WEB = Web Platform
+            // XXXXXXXX = last 8 digits of timestamp (unique per second)
+            // YYYYYY   = last 6 chars of userId (for traceability)
+            const orderId = `SS-WEB-${String(Date.now()).slice(-8)}-${String(user._id || "web").slice(-6)}`
             const response = await apiClient.initiatePaytmPayment({
-                amount: basePrice,
+                amount: totalAmount,
                 orderId,
                 customerId: user._id || "",
                 email: user.email,
@@ -81,7 +119,7 @@ export default function CheckoutPage() {
 
             if (response.success) {
                 // Determine Paytm Host (Staging vs Production) - defaulting to sandbox for safety if not exposed
-                const host = process.env.NEXT_PUBLIC_PAYTM_ENVIRONMENT === 'PRODUCTION' ? 'securegw.paytm.in' : 'securegw-stage.paytm.in';
+                const host = response.host || (process.env.NEXT_PUBLIC_PAYTM_ENVIRONMENT === 'PRODUCTION' ? 'secure.paytmpayments.com' : 'securestage.paytmpayments.com');
                 const actionUrl = `https://${host}/theia/api/v1/showPaymentPage?mid=${response.mid}&orderId=${response.orderId}`;
 
                 // Create a dynamic form to submit to Paytm directly 
@@ -127,7 +165,12 @@ export default function CheckoutPage() {
                 <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-accent/5 rounded-full blur-[100px]" />
             </div>
 
-      <PublicNavbar showBack backText="Back to Plans" backHref="/subscriptions" />
+      <PublicNavbar 
+        showBack 
+        backText="Back to Plans" 
+        backHref="/subscriptions" 
+        logoHref={user ? "/subscriptions" : "/"} 
+      />
 
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
                 <div className="text-center mb-10">
@@ -174,6 +217,18 @@ export default function CheckoutPage() {
                                         <span className="text-muted-foreground">Base Price</span>
                                         <span>₹{basePrice.toLocaleString()}</span>
                                     </div>
+                                    {upgradeCredit > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-green-500 font-medium">Upgrade Credit</span>
+                                            <span className="text-green-500 font-medium">-₹{upgradeCredit.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {upgradeCredit > 0 && (
+                                        <div className="flex justify-between text-sm font-semibold">
+                                            <span className="text-foreground">Subtotal</span>
+                                            <span>₹{subtotal.toLocaleString()}</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">GST @ 18%</span>
                                         <span>₹{gstAmount.toLocaleString()}</span>

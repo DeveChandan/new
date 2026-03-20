@@ -24,7 +24,7 @@ const plans = {
     basic: {
 
         name: '30 Days Plan',
-        price: 2350,
+        price: 20,
         duration: 30,
         maxActiveJobs: 1,
         maxDatabaseUnlocks: 100,
@@ -311,9 +311,10 @@ const calculatePlanPrice = async (employerId, plan) => {
     }
 
     let upgradeCredit = 0;
+    const basePrice = planConfig.price;
 
     // For regular subscriptions, calculate pro-rata credit
-    if (!planConfig.isAddon && planConfig.price > 0) {
+    if (!planConfig.isAddon && basePrice > 0) {
         const existingSubscription = await Subscription.findOne({
             employer: employerId,
             status: 'active',
@@ -333,10 +334,19 @@ const calculatePlanPrice = async (employerId, plan) => {
         }
     }
 
-    const subtotal = Math.max(0, planConfig.price - upgradeCredit);
+    const subtotal = Math.max(0, basePrice - upgradeCredit);
     const TAX_RATE = 0.18;
     const taxAmount = Math.round(subtotal * TAX_RATE);
-    return subtotal + taxAmount;
+    const totalAmount = subtotal + taxAmount;
+
+    return {
+        basePrice,
+        upgradeCredit,
+        subtotal,
+        taxAmount,
+        totalAmount,
+        taxRate: TAX_RATE
+    };
 };
 
 module.exports = {

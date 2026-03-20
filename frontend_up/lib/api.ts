@@ -428,6 +428,7 @@ export class APIClient {
       txnToken: string;
       orderId: string;
       mid: string;
+      host?: string;
     }>("/payments/paytm/initiate", {
       method: "POST",
       body: JSON.stringify(data),
@@ -450,6 +451,17 @@ export class APIClient {
 
   async getSubscriptionPlans() {
     return this.request("/payments/plans");
+  }
+
+  async getPaymentPreview(planId: string): Promise<{
+    basePrice: number;
+    upgradeCredit: number;
+    subtotal: number;
+    taxAmount: number;
+    totalAmount: number;
+    taxRate: number;
+  }> {
+    return this.request(`/payments/preview?planId=${planId}`);
   }
 
   async getCurrentSubscription(): Promise<any> {

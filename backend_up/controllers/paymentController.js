@@ -526,6 +526,27 @@ const processRefund = async (req, res) => {
   }
 };
 
+/**
+ * Get a preview of the payment (including tax and any credits)
+ */
+const getPaymentPreview = async (req, res) => {
+  try {
+    const { planId } = req.query;
+    const employerId = req.user._id;
+
+    if (!planId) {
+      return res.status(400).json({ message: 'Plan ID is required' });
+    }
+
+    const { calculatePlanPrice } = require('../services/subscriptionService');
+    const pricing = await calculatePlanPrice(employerId, planId);
+
+    res.status(200).json(pricing);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createSubscription,
   getSubscriptionPlans,
@@ -539,4 +560,5 @@ module.exports = {
   sendPaymentReminder,
   purchaseWorklogAddon,
   processRefund,
+  getPaymentPreview,
 };
