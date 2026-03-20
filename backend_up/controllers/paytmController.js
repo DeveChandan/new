@@ -562,62 +562,84 @@ exports.handlePaytmCallback = async (req, res) => {
 
  */
 
+/**
+ * Render Paytm Payment Form (for WebBrowser handoff)
+ */
 exports.renderPaytmForm = async (req, res) => {
-
     try {
-
         const { txnToken, orderId, mid } = req.query;
 
-
-
         if (!txnToken || !orderId || !mid) {
-
             return res.status(400).send('<h1>Invalid Payment Parameters</h1>');
-
         }
 
-
-
-        const host = process.env.PAYTM_WEBSITE === 'WEBSTAGING' ? 'securestage.paytmpayments.com' : 'secure.paytmpayments.com';
-
-
+        // Use the same host logic as initiation
+        const WEBSITE = (process.env.PAYTM_WEBSITE || 'WEBSTAGING').trim();
+        const host = WEBSITE === 'WEBSTAGING' ? 'securestage.paytmpayments.com' : 'secure.paytmpayments.com';
 
         res.send(`
-
+            <!DOCTYPE html>
             <html>
-
                 <head>
-
                     <title>Processing Payment...</title>
-
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f5f5f5; }
+                        .container { background: white; padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 450px; width: 90%; }
+                        h1 { color: #1A1A2E; margin-bottom: 1rem; font-size: 1.5rem; font-weight: 700; }
+                        p { color: #64748B; margin-bottom: 2rem; line-height: 1.5; }
+                        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #2196F3; border-radius: 50%; width: 48px; height: 48px; animation: spin 1s linear infinite; margin: 0 auto 24px; }
+                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                        .btn { display: inline-block; background: #2196F3; color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: 600; border: none; cursor: pointer; transition: background 0.2s; width: 100%; }
+                        .btn:hover { background: #1976D2; }
+                        .secondary-text { margin-top: 1.5rem; color: #94A3B8; font-size: 0.875rem; }
+                    </style>
                 </head>
+                <body>
+                    <div class="container">
+                        <div class="loader"></div>
+                        <h1>Processing Payment</h1>
+                        <p>We are securely redirecting you to the payment gateway. <strong>Please do not refresh or close this page.</strong></p>
+                        
+                        <form method="post" action="https://${host}/theia/api/v1/showPaymentPage?mid=${mid}&orderId=${orderId}" name="paytmForm">
+                            <input type="hidden" name="mid" value="${mid}">
+                            <input type="hidden" name="orderId" value="${orderId}">
+                            <input type="hidden" name="txnToken" value="${txnToken}">
+                            <noscript>
+                                <button type="submit" class="btn">Continue to Payment</button>
+                            </noscript>
+                        </form>
+                        
+                        <div id="manual-redirect" style="display: none;">
+                           <button type="button" class="btn" onclick="document.paytmForm.submit()">Click here to continue</button>
+                        </div>
 
-                <body onload="document.paytmForm.submit()">
+                        <div class="secondary-text">Secured by Shramik Seva</div>
+                    </div>
 
-                    <center><h1>Please do not refresh this page...</h1></center>
+                    <script type="text/javascript">
+                        window.onload = function() {
+                            // Small delay ensures the form is ready in all browsers
+                            setTimeout(function() {
+                                try {
+                                    document.paytmForm.submit();
+                                } catch (e) {
+                                    console.error("Auto-submit failed:", e);
+                                    document.getElementById('manual-redirect').style.display = 'block';
+                                }
+                            }, 500);
 
-                    <form method="post" action="https://${host}/theia/api/v1/showPaymentPage?mid=${mid}&orderId=${orderId}" name="paytmForm">
-
-                        <input type="hidden" name="mid" value="${mid}">
-
-                        <input type="hidden" name="orderId" value="${orderId}">
-
-                        <input type="hidden" name="txnToken" value="${txnToken}">
-
-                    </form>
-
+                            // Show fallback button after 5 seconds if still here
+                            setTimeout(function() {
+                                document.getElementById('manual-redirect').style.display = 'block';
+                            }, 5000);
+                        };
+                    </script>
                 </body>
-
             </html>
-
         `);
-
     } catch (error) {
-
         console.error('Render Form Error:', error);
-
         res.status(500).send('<h1>Server Error</h1>');
-
     }
-
-};
+};

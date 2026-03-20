@@ -45,7 +45,14 @@ app.use(performanceMonitoring); // Add performance monitoring
 app.use(requestLogger);
 
 // CORS configuration
-app.use(cors(corsOptions));
+// We use a custom wrapper to allow all origins for the Paytm callback route,
+// as it must be accessible by external redirects from Paytm's domain.
+app.use((req, res, next) => {
+  if (req.originalUrl && req.originalUrl.includes('/api/payments/paytm/callback')) {
+    return cors({ origin: true, credentials: true })(req, res, next);
+  }
+  return cors(corsOptions)(req, res, next);
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
