@@ -647,15 +647,15 @@ export default function EmployerDashboardPage() {
               <h3 className="text-lg sm:text-2xl font-semibold text-foreground mb-4">{t('subscription.title')}</h3>
               {subscription ? (
                 <>
-                  <p className="text-muted-foreground text-sm sm:text-base">
+                  <p className={`text-sm sm:text-base font-medium ${new Date(subscription.endDate) < new Date() ? 'text-destructive' : 'text-muted-foreground'}`}>
                     {t('subscription.currentPlan', {
                       plan: subscription.planType?.charAt(0).toUpperCase() + subscription.planType?.slice(1) || 'N/A'
                     })}
+                    {new Date(subscription.endDate) < new Date() && <span className="ml-2 font-bold">(Expired)</span>}
                   </p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {t('subscription.renewsOn', {
-                      date: new Date(subscription.endDate).toLocaleDateString()
-                    })}
+                  <p className={`text-sm mt-2 ${new Date(subscription.endDate) < new Date() ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                    {new Date(subscription.endDate) < new Date() ? 'Expired on: ' : t('subscription.renewsOn', { date: '' })}
+                    {new Date(subscription.endDate).toLocaleDateString()}
                   </p>
                   <div className="mt-3 text-sm">
                     <p className="text-muted-foreground">
@@ -670,7 +670,9 @@ export default function EmployerDashboardPage() {
               )}
               <div className="flex gap-2 mt-4">
                 <Link href="/subscriptions" className="flex-1">
-                  <Button className="w-full rounded-full">{t('subscription.manage')}</Button>
+                  <Button className={`w-full rounded-full ${new Date(subscription.endDate) < new Date() ? 'bg-destructive hover:bg-destructive/90' : ''}`}>
+                    {new Date(subscription.endDate) < new Date() ? 'Renew Plan' : t('subscription.manage')}
+                  </Button>
                 </Link>
                 <Link href="/billing" className="flex-1">
                   <Button variant="outline" className="w-full rounded-full">View Invoices</Button>

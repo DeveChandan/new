@@ -102,11 +102,9 @@ export default function CheckoutPage() {
                 return
             }
 
-            // Format: SS-WEB-XXXXXXXX-YYYYYY (max 22 chars, Paytm limit: 26)
-            // SS = ShramikSeva | WEB = Web Platform
-            // XXXXXXXX = last 8 digits of timestamp (unique per second)
-            // YYYYYY   = last 6 chars of userId (for traceability)
-            const orderId = `SS-WEB-${String(Date.now()).slice(-8)}-${String(user._id || "web").slice(-6)}`
+            // Format: SS-[LOCALE]-WEB-XXXXXXXX-YYYYYY (max 22 chars, Paytm limit: 50)
+            const activeLocale = window.location.pathname.split('/')[1] || 'en';
+            const orderId = `SS-${activeLocale.toUpperCase()}-WEB-${String(Date.now()).slice(-8)}-${String(user._id || "web").slice(-6)}`
             const response = await apiClient.initiatePaytmPayment({
                 amount: totalAmount,
                 orderId,

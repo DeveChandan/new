@@ -1,6 +1,7 @@
 const { User } = require('../models/User');
 const Job = require('../models/Job');
 const whatsappService = require('./whatsappService');
+const notificationService = require('./notificationService');
 
 /**
  * Finds the best-matching workers for a new job and notifies them.
@@ -29,15 +30,31 @@ const findAndNotifyWorkers = async (newJob) => {
 
         console.log(`Found ${matchedWorkers.length} matching workers. Notifying them...`);
 
-        const notifications = matchedWorkers
-            .filter(worker => worker.mobile)
-            .map(worker =>
-                whatsappService.sendJobSuggestion(worker.mobile, {
-                    workerName: worker.name,
-                    jobTitle: newJob.title,
-                    employerName: newJob.employer.name || 'a reputable employer'
+        const notifications = [];
+        for (const worker of matchedWorkers) {
+            notifications.push(
+                notificationService.createAndSend({
+                    userId: worker._id,
+                    userRole: 'worker',
+                    type: 'job_suggestion',
+                    title: 'New Job Recommended for You!',
+                    message: `We found a job matching your profile: ${newJob.title}`,
+                    relatedId: newJob._id,
+                    relatedModel: 'Job',
+                    actionUrl: `/jobs/${newJob._id}`
                 })
             );
+
+            if (worker.mobile) {
+                notifications.push(
+                    whatsappService.sendJobSuggestion(worker.mobile, {
+                        workerName: worker.name,
+                        jobTitle: newJob.title,
+                        employerName: newJob.employer?.name || 'a reputable employer'
+                    })
+                );
+            }
+        }
 
         const results = await Promise.allSettled(notifications);
         const successful = results.filter(r => r.status === 'fulfilled').length;
@@ -86,15 +103,31 @@ const findAndNotifyEmployers = async (newWorker) => {
 
         console.log(`Found ${uniqueEmployers.size} relevant employers. Notifying them...`);
 
-        const notifications = Array.from(uniqueEmployers.values())
-            .filter(employer => employer.mobile)
-            .map(employer =>
-                whatsappService.sendWorkerSuggestion(employer.mobile, {
-                    employerName: employer.name,
-                    workerName: newWorker.name,
-                    workerSkills: newWorker.skills.join(', ') || 'various skills'
+        const notifications = [];
+        for (const employer of uniqueEmployers.values()) {
+            notifications.push(
+                notificationService.createAndSend({
+                    userId: employer._id,
+                    userRole: 'employer',
+                    type: 'worker_suggestion',
+                    title: 'New Worker Match!',
+                    message: `We found a worker matching your open jobs: ${newWorker.name}`,
+                    relatedId: newWorker._id,
+                    relatedModel: 'User',
+                    actionUrl: `/profile/${newWorker._id}`
                 })
             );
+
+            if (employer.mobile) {
+                notifications.push(
+                    whatsappService.sendWorkerSuggestion(employer.mobile, {
+                        employerName: employer.name,
+                        workerName: newWorker.name,
+                        workerSkills: newWorker.skills?.join(', ') || 'various skills'
+                    })
+                );
+            }
+        }
 
         const results = await Promise.allSettled(notifications);
         const successful = results.filter(r => r.status === 'fulfilled').length;

@@ -195,7 +195,7 @@ exports.initiateWithPaytm = async (req, res) => {
                 'Content-Type': 'application/json',
 
                 'Content-Length': Buffer.byteLength(post_data),
-                
+
                 'User-Agent': 'Node/22'
 
             }
@@ -467,23 +467,27 @@ exports.handlePaytmCallback = async (req, res) => {
         }
 
 
-
         // Determine Redirect URL based on platform
-
         let redirectUrl;
 
+        // Try extracting embedded locale from orderId (e.g., SS-EN-WEB-... or SS-HI-WEB-...)
+        let extractedLocale = 'en';
+        if (orderId && orderId.startsWith('SS-') && orderId.includes('-WEB-')) {
+            const parts = orderId.split('-');
+            if (parts.length >= 2) {
+                const potentialLocale = parts[1].toLowerCase();
+                if (['en', 'hi', 'bn', 'te', 'ta', 'mr', 'gu', 'kn', 'ml', 'pa', 'or', 'as'].includes(potentialLocale)) {
+                    extractedLocale = potentialLocale;
+                }
+            }
+        }
+
         if (payment && payment.platform === 'web') {
-
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-
-            redirectUrl = `${frontendUrl}/subscriptions/status?status=${status}&orderId=${orderId}&txnId=${txnId}`;
-
+            redirectUrl = `${frontendUrl}/${extractedLocale}/subscriptions/status?status=${status}&orderId=${orderId}&txnId=${txnId}`;
         } else {
-
             // Mobile App Deep Link
-
             redirectUrl = `shramiksevaapp://(employer)/payment-status?status=${status}&orderId=${orderId}&txnId=${txnId}`;
-
         }
 
 
@@ -601,7 +605,7 @@ exports.renderPaytmForm = async (req, res) => {
                         <h1>Processing Payment</h1>
                         <p>We are securely redirecting you to the payment gateway. <strong>Please do not refresh or close this page.</strong></p>
                         
-                        <form method="post" action="https://${host}/theia/api/v1/showPaymentPage?mid=${mid}&orderId=${orderId}" name="paytmForm">
+                        <form id="paytmForm" method="post" action="https://${host}/theia/api/v1/showPaymentPage?mid=${mid}&orderId=${orderId}" name="paytmForm">
                             <input type="hidden" name="mid" value="${mid}">
                             <input type="hidden" name="orderId" value="${orderId}">
                             <input type="hidden" name="txnToken" value="${txnToken}">
@@ -610,30 +614,29 @@ exports.renderPaytmForm = async (req, res) => {
                             </noscript>
                         </form>
                         
-                        <div id="manual-redirect" style="display: none;">
-                           <button type="button" class="btn" onclick="document.paytmForm.submit()">Click here to continue</button>
+                        <div id="manual-redirect" style="display: none; margin-top: 20px;">
+                           <p style="font-size: 14px; color: #E53935; margin-bottom: 10px;">If you are not redirected automatically, click below.</p>
+                           <button type="button" class="btn" onclick="document.getElementById('paytmForm').submit()">Click here to continue</button>
                         </div>
 
                         <div class="secondary-text">Secured by Shramik Seva</div>
                     </div>
 
                     <script type="text/javascript">
-                        window.onload = function() {
-                            // Small delay ensures the form is ready in all browsers
-                            setTimeout(function() {
-                                try {
-                                    document.paytmForm.submit();
-                                } catch (e) {
-                                    console.error("Auto-submit failed:", e);
-                                    document.getElementById('manual-redirect').style.display = 'block';
-                                }
-                            }, 500);
-
-                            // Show fallback button after 5 seconds if still here
-                            setTimeout(function() {
+                        // Wait a tiny bit just to let the DOM settle and be visible to user
+                        setTimeout(function() {
+                            try {
+                                document.getElementById('paytmForm').submit();
+                            } catch (e) {
+                                console.error("Auto-submit failed:", e);
                                 document.getElementById('manual-redirect').style.display = 'block';
-                            }, 5000);
-                        };
+                            }
+                        }, 500);
+
+                        // Fallback mechanism
+                        setTimeout(function() {
+                            document.getElementById('manual-redirect').style.display = 'block';
+                        }, 4000);
                     </script>
                 </body>
             </html>
@@ -642,4 +645,4 @@ exports.renderPaytmForm = async (req, res) => {
         console.error('Render Form Error:', error);
         res.status(500).send('<h1>Server Error</h1>');
     }
-};
+};

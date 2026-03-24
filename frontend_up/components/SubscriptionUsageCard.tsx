@@ -60,11 +60,13 @@ export default function SubscriptionUsageCard() {
                         Subscription Usage
                     </CardTitle>
                     <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">{daysRemaining} days left</span>
+                        <Calendar className={`w-4 h-4 ${daysRemaining <= 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+                        <span className={`font-semibold ${daysRemaining <= 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            {daysRemaining <= 0 ? 'Expired' : `${daysRemaining} days left`}
+                        </span>
                     </div>
                 </div>
-                <p className="text-sm text-muted-foreground capitalize mt-1">
+                <p className={`text-sm capitalize mt-1 ${daysRemaining <= 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                     {subscription.planType} Plan - ₹{subscription.price}
                 </p>
             </CardHeader>
@@ -115,14 +117,14 @@ export default function SubscriptionUsageCard() {
                     </div>
                 </div>
 
-                {/* Upgrade Button */}
-                {(databaseUnlocksPercent >= 80 || locationChangesPercent >= 80) && (
+                {/* Upgrade/Renew Button */}
+                {(daysRemaining <= 0 || databaseUnlocksPercent >= 80 || locationChangesPercent >= 80) && (
                     <Button
                         onClick={() => router.push('/subscriptions')}
-                        className="w-full mt-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                        className={`w-full mt-4 bg-gradient-to-r ${daysRemaining <= 0 ? 'from-destructive to-red-600 hover:from-red-700 hover:to-red-800' : 'from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'}`}
                     >
-                        <TrendingUp className="w-4 h-4 mr-2" />
-                        Upgrade Plan
+                        {daysRemaining <= 0 ? <Calendar className="w-4 h-4 mr-2" /> : <TrendingUp className="w-4 h-4 mr-2" />}
+                        {daysRemaining <= 0 ? 'Renew Plan' : 'Upgrade Plan'}
                     </Button>
                 )}
             </CardContent>

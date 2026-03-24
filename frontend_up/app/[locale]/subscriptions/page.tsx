@@ -220,8 +220,8 @@ export default function SubscriptionsPage() {
                 <h3 className="text-lg font-semibold text-foreground mb-1">Current Subscription</h3>
                 <p className="text-sm text-muted-foreground">
                   {plans.find(p => p.planKey === currentSubscription.plan)?.name || currentSubscription.plan} -
-                  <span className="ml-1">
-                    {currentSubscription.status === 'active' ? '✓ Active' : currentSubscription.status}
+                  <span className={`ml-1 font-bold ${new Date(currentSubscription.endDate) < new Date() ? 'text-destructive' : 'text-green-600 dark:text-green-400'}`}>
+                    {new Date(currentSubscription.endDate) < new Date() ? 'Expired' : (currentSubscription.status === 'active' ? '✓ Active' : currentSubscription.status)}
                   </span>
                 </p>
               </div>
@@ -233,8 +233,9 @@ export default function SubscriptionsPage() {
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Expires</p>
-                <p className="text-sm font-semibold text-foreground">
+                <p className={`text-sm font-semibold ${new Date(currentSubscription.endDate) < new Date() ? 'text-destructive' : 'text-foreground'}`}>
                   {new Date(currentSubscription.endDate).toLocaleDateString()}
+                  {new Date(currentSubscription.endDate) < new Date() && <span className="ml-1 text-xs">(Expired)</span>}
                 </p>
               </div>
             </div>

@@ -25,7 +25,9 @@ export type NotificationType =
     | "dispute_resolved"
     | "subscription_created"
     | "invoice_generated"
-    | "new_rating";
+    | "new_rating"
+    | "job_suggestion"
+    | "worker_suggestion";
 
 export interface Toast {
     id: string

@@ -10,7 +10,8 @@ const securityHeaders = helmet({
         directives: {
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            formAction: ["'self'", "https://securegw.paytm.in", "https://securegw-stage.paytm.in", "https://secure.paytmpayments.com", "https://securestage.paytmpayments.com"],
             imgSrc: ["'self'", 'data:', 'https:', process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : ''],
             connectSrc: ["'self'", process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : ''],
             fontSrc: ["'self'"],
