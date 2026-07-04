@@ -63,4 +63,7 @@ router.post('/paytm/callback', paytmController.handlePaytmCallback);
 // GET /api/payments/paytm/pay
 router.get('/paytm/pay', paytmController.renderPaytmForm);
 
+// GET /api/payments/paytm/status/:orderId
+router.get('/paytm/status/:orderId', protect, paytmController.getPaymentStatus);
+
 module.exports = router;
