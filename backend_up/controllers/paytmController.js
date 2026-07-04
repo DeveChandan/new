@@ -5,6 +5,8 @@ const PaytmChecksum = require('paytmchecksum');
 const Payment = require('../models/Payment');
 
 const { activateSubscription, activateWorklogAddon, calculatePlanPrice } = require('../services/subscriptionService');
+const { emitToUser } = require('../socket');
+
 
 
 
@@ -371,97 +373,57 @@ exports.handlePaytmCallback = async (req, res) => {
 
 
             if (resultStatus === 'TXN_SUCCESS') {
-
                 status = 'success';
-
-
-
                 if (payment) {
-
                     if (payment.status === 'success') {
-
                         console.log(`Payment duplicate webhook received and skipped for order: ${orderId}`);
-
                     } else if (parseFloat(paytmParams.TXNAMOUNT) !== payment.amount) {
-
                         console.error(`🚨 Payment Amount Mismatch for order ${orderId}: Expected ${payment.amount}, got ${paytmParams.TXNAMOUNT}. Potential tampering.`);
-
                         payment.status = 'failure';
-
                         payment.gatewayResponse = paytmParams;
-
                         payment.gatewayResponse.errorReason = 'Amount Validation Failed';
-
                         await payment.save();
-
                         status = 'failed';
-
+                        emitToUser(payment.user.toString(), 'payment:status', { orderId, status: 'failed', error: 'Amount validation failed' });
                     } else {
-
                         payment.status = 'success';
-
                         payment.txnId = txnId;
-
                         payment.bankTxnId = paytmParams.BANKTXNID;
-
                         payment.paymentMethod = paytmParams.PAYMENTMODE;
-
                         payment.gatewayResponse = paytmParams;
-
                         await payment.save();
 
+                        // Emit WebSocket success status to the client instantly
+                        emitToUser(payment.user.toString(), 'payment:status', { orderId, status: 'success', txnId });
 
-
-                        // ACTIVATE SUBSCRIPTION OR ADDON
-
-                        if (payment.planId === 'worklog_access') {
-
-                            try {
-
-                                await activateWorklogAddon(payment.user);
-
-                                console.log(`✅ Worklog Access activated for user ${payment.user}`);
-
-                            } catch (subError) {
-
-                                console.error('❌ Failed to activate worklog addon after payment:', subError);
-
+                        // DECOUPLED ASYNC FULFILLMENT: Activate in background thread
+                        setImmediate(async () => {
+                            if (payment.planId === 'worklog_access') {
+                                try {
+                                    await activateWorklogAddon(payment.user);
+                                    console.log(`✅ Worklog Access activated asynchronously for user ${payment.user}`);
+                                } catch (subError) {
+                                    console.error('❌ Failed to activate worklog addon asynchronously after payment:', subError);
+                                }
+                            } else if (payment.planId) {
+                                try {
+                                    await activateSubscription(payment.user, payment.planId);
+                                    console.log(`✅ Subscription activated asynchronously for user ${payment.user} - Plan: ${payment.planId}`);
+                                } catch (subError) {
+                                    console.error('❌ Failed to activate subscription asynchronously after payment:', subError);
+                                }
                             }
-
-                        } else if (payment.planId) {
-
-                            try {
-
-                                await activateSubscription(payment.user, payment.planId);
-
-                                console.log(`✅ Subscription activated for user ${payment.user} - Plan: ${payment.planId}`);
-
-                            } catch (subError) {
-
-                                console.error('❌ Failed to activate subscription after payment:', subError);
-
-                            }
-
-                        }
-
+                        });
                     }
-
                 }
-
             } else {
-
                 status = 'failed';
-
                 if (payment) {
-
                     payment.status = 'failure';
-
                     payment.gatewayResponse = paytmParams;
-
                     await payment.save();
-
+                    emitToUser(payment.user.toString(), 'payment:status', { orderId, status: 'failed' });
                 }
-
             }
 
         }
@@ -487,7 +449,7 @@ exports.handlePaytmCallback = async (req, res) => {
             redirectUrl = `${frontendUrl}/${extractedLocale}/subscriptions/status?status=${status}&orderId=${orderId}&txnId=${txnId}`;
         } else {
             // Mobile App Deep Link
-            redirectUrl = `shramiksevaapp://(employer)/payment-status?status=${status}&orderId=${orderId}&txnId=${txnId}`;
+            redirectUrl = `shramiksevaapp://payment-status?status=${status}&orderId=${orderId}&txnId=${txnId}`;
         }
 
 
@@ -644,5 +606,26 @@ exports.renderPaytmForm = async (req, res) => {
     } catch (error) {
         console.error('Render Form Error:', error);
         res.status(500).send('<h1>Server Error</h1>');
+    }
+};
+
+// ** NEW: Polling Endpoint for Frontend fallback **
+exports.getPaymentStatus = async (req, res) => {
+    try {
+        const orderId = req.params.orderId;
+        const payment = await Payment.findOne({ orderId: orderId });
+
+        if (!payment) {
+            return res.status(404).json({ success: false, message: 'Payment not found' });
+        }
+
+        res.status(200).json({
+            success: true,
+            status: payment.status, // 'success', 'pending', 'failed'
+            txnId: payment.txnId
+        });
+    } catch (error) {
+        console.error('Error fetching payment status:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
