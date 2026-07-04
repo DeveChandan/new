@@ -670,8 +670,12 @@ export default function EmployerDashboardPage() {
               )}
               <div className="flex gap-2 mt-4">
                 <Link href="/subscriptions" className="flex-1">
-                  <Button className={`w-full rounded-full ${new Date(subscription.endDate) < new Date() ? 'bg-destructive hover:bg-destructive/90' : ''}`}>
+               {/*   <Button className={`w-full rounded-full ${new Date(subscription.endDate) < new Date() ? 'bg-destructive hover:bg-destructive/90' : ''}`}>
                     {new Date(subscription.endDate) < new Date() ? 'Renew Plan' : t('subscription.manage')}
+                  </Button>*/}
+
+<Button className={`w-full rounded-full ${subscription && new Date(subscription.endDate) < new Date() ? 'bg-destructive hover:bg-destructive/90' : ''}`}>
+                    {subscription && new Date(subscription.endDate) < new Date() ? 'Renew Plan' : t('subscription.manage')}
                   </Button>
                 </Link>
                 <Link href="/billing" className="flex-1">

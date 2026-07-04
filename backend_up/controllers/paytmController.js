@@ -487,7 +487,7 @@ exports.handlePaytmCallback = async (req, res) => {
             redirectUrl = `${frontendUrl}/${extractedLocale}/subscriptions/status?status=${status}&orderId=${orderId}&txnId=${txnId}`;
         } else {
             // Mobile App Deep Link
-            redirectUrl = `shramiksevaapp://(employer)/payment-status?status=${status}&orderId=${orderId}&txnId=${txnId}`;
+            redirectUrl = `shramiksevaapp://payment-status?status=${status}&orderId=${orderId}&txnId=${txnId}`;
         }
 
 
@@ -644,5 +644,26 @@ exports.renderPaytmForm = async (req, res) => {
     } catch (error) {
         console.error('Render Form Error:', error);
         res.status(500).send('<h1>Server Error</h1>');
+    }
+};
+
+// ** NEW: Polling Endpoint for Frontend fallback **
+exports.getPaymentStatus = async (req, res) => {
+    try {
+        const orderId = req.params.orderId;
+        const payment = await Payment.findOne({ orderId: orderId });
+
+        if (!payment) {
+            return res.status(404).json({ success: false, message: 'Payment not found' });
+        }
+
+        res.status(200).json({
+            success: true,
+            status: payment.status, // 'success', 'pending', 'failed'
+            txnId: payment.txnId
+        });
+    } catch (error) {
+        console.error('Error fetching payment status:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
