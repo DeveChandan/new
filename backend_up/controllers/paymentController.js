@@ -1,4 +1,4 @@
-const { activateSubscription, plans } = require('../services/subscriptionService');
+const { activateSubscription, plans, getSubscriptionPlansFromDb } = require('../services/subscriptionService');
 const Subscription = require('../models/Subscription');
 const Payment = require('../models/Payment');
 const { User } = require('../models/User');
@@ -11,7 +11,8 @@ const fs = require('fs');
  */
 const getSubscriptionPlans = async (req, res) => {
   try {
-    const plansArray = Object.entries(plans).map(([key, value]) => ({
+    const dbPlans = await getSubscriptionPlansFromDb();
+    const plansArray = Object.entries(dbPlans).map(([key, value]) => ({
       ...value,
       planKey: key
     }));
@@ -29,6 +30,9 @@ const createSubscription = async (req, res) => {
   const employerId = req.user._id;
 
   try {
+    if (plan !== 'free') {
+      return res.status(400).json({ message: 'Only the Free Trial plan can be activated directly. Paid plans require successful payment.' });
+    }
     const subscription = await activateSubscription(employerId, plan);
     res.status(201).json(subscription);
   } catch (error) {

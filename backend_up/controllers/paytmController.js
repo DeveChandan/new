@@ -6,6 +6,7 @@ const Payment = require('../models/Payment');
 
 const { activateSubscription, activateWorklogAddon, calculatePlanPrice } = require('../services/subscriptionService');
 const { emitToUser } = require('../socket');
+const { queryPaytmStatus } = require('../utils/paytmUtils');
 
 
 
@@ -613,15 +614,48 @@ exports.renderPaytmForm = async (req, res) => {
 exports.getPaymentStatus = async (req, res) => {
     try {
         const orderId = req.params.orderId;
-        const payment = await Payment.findOne({ orderId: orderId });
+        let payment = await Payment.findOne({ orderId: orderId });
 
         if (!payment) {
             return res.status(404).json({ success: false, message: 'Payment not found' });
         }
 
+        // If the transaction is pending in our database, actively query Paytm status API
+        if (payment.status === 'pending') {
+            try {
+                const resData = await queryPaytmStatus(payment.orderId);
+                const body = resData.body;
+
+                if (body && body.resultInfo && body.resultInfo.resultStatus === 'TXN_SUCCESS') {
+                    // Double check amount to prevent tampering
+                    if (parseFloat(body.txnAmount) === payment.amount) {
+                        payment.status = 'success';
+                        payment.txnId = body.txnId;
+                        payment.bankTxnId = body.bankTxnId;
+                        payment.paymentMethod = body.paymentMode;
+                        payment.gatewayResponse = body;
+                        await payment.save();
+
+                        // Activate the subscription/addon in the database
+                        if (payment.planId === 'worklog_access') {
+                            await activateWorklogAddon(payment.user);
+                        } else if (payment.planId) {
+                            await activateSubscription(payment.user, payment.planId);
+                        }
+                    }
+                } else if (body && body.resultInfo && (body.resultInfo.resultStatus === 'TXN_FAILURE' || body.resultInfo.resultStatus === 'RESP_FAILURE')) {
+                    payment.status = 'failure';
+                    payment.gatewayResponse = body;
+                    await payment.save();
+                }
+            } catch (err) {
+                console.error(`Proactive API status check failed for order ${orderId}:`, err.message);
+            }
+        }
+
         res.status(200).json({
             success: true,
-            status: payment.status, // 'success', 'pending', 'failed'
+            status: payment.status,
             txnId: payment.txnId
         });
     } catch (error) {

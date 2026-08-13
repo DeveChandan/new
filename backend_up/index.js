@@ -10,7 +10,7 @@ const dailyWorkLog = require('./cron/dailyWorkLog');
 const ratingPrompt = require('./cron/ratingPrompt');
 const notificationCleanup = require('./cron/notificationCleanup');
 const dataCleanup = require('./cron/dataCleanup');
- const paymentReconciliation = require('./cron/paymentReconciliation');
+const paymentReconciliation = require('./cron/paymentReconciliation');
 const { errorHandler, notFound, handleUnhandledRejections, handleUncaughtExceptions } = require('./middleware/errorHandler');
 const { validateEnv } = require('./config/validateEnv');
 const { securityHeaders, corsOptions, sanitizeRequest, requestLogger } = require('./middleware/security');
@@ -189,6 +189,7 @@ dailyWorkLog();
 ratingPrompt();
 notificationCleanup();
 dataCleanup();
+paymentReconciliation();
 console.log('✅ All cron jobs initialized');
 
 const PORT = process.env.PORT || 5000;

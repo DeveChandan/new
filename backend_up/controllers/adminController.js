@@ -5,6 +5,7 @@ const Rating = require('../models/Rating');
 const Document = require('../models/Document');
 const Invoice = require('../models/Invoice');
 const Subscription = require('../models/Subscription');
+const { plans, getSubscriptionPlansFromDb } = require('../services/subscriptionService');
 const WorkLog = require('../models/WorkLog');
 const Dispute = require('../models/Dispute');
 const Conversation = require('../models/Conversation');
@@ -665,7 +666,21 @@ const updateSubscription = async (req, res) => {
     const { plan, endDate } = req.body;
     const subscription = await Subscription.findById(req.params.id);
     if (subscription) {
-      subscription.plan = plan || subscription.plan;
+      if (plan && plan !== subscription.planType) {
+        subscription.planType = plan;
+        const dbPlans = await getSubscriptionPlansFromDb();
+        const planConfig = dbPlans[plan];
+        if (planConfig) {
+          subscription.price = planConfig.price;
+          subscription.features = planConfig.features;
+          subscription.maxActiveJobs = planConfig.maxActiveJobs;
+          subscription.maxDatabaseUnlocks = planConfig.maxDatabaseUnlocks;
+          subscription.maxLocationChanges = planConfig.maxLocationChanges;
+          if (plan === 'premium') {
+            subscription.worklogAccessExpiry = endDate || subscription.endDate;
+          }
+        }
+      }
       subscription.endDate = endDate || subscription.endDate;
       await subscription.save();
       res.json(subscription);
@@ -673,6 +688,7 @@ const updateSubscription = async (req, res) => {
       res.status(404).json({ message: 'Subscription not found' });
     }
   } catch (error) {
+    console.error('Error in updateSubscription:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 }

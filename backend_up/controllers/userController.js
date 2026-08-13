@@ -13,7 +13,7 @@ const { geocodeAddress } = require('../services/geolocationService');
 const { sendOTP } = require('../utils/fast2smsService');
 const { getLocale } = require('../utils');
 const { translateUser, translateRating, translateJob } = require('../services/translationService');
-const { plans } = require('../services/subscriptionService');
+const { plans, getSubscriptionPlansFromDb } = require('../services/subscriptionService');
 
 const checkMobile = async (req, res) => {
   try {
@@ -812,7 +812,8 @@ const updateSubscription = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     let subscription = await Subscription.findOne({ employer: userId });
-    const selectedPlan = plans[planType];
+    const dbPlans = await getSubscriptionPlansFromDb();
+    const selectedPlan = dbPlans[planType];
     if (!selectedPlan) {
       return res.status(400).json({ message: 'Invalid plan type' });
     }

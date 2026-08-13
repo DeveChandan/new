@@ -1,6 +1,7 @@
 const Subscription = require('../models/Subscription');
 const { User } = require('../models/User');
 const Invoice = require('../models/Invoice');
+const Setting = require('../models/Setting');
 const notificationService = require('./notificationService');
 const pdfService = require('./pdfService');
 const emailService = require('./emailService');
@@ -24,7 +25,7 @@ const plans = {
     basic: {
 
         name: '30 Days Plan',
-        price: 20,
+        price: 2350,
         duration: 30,
         maxActiveJobs: 1,
         maxDatabaseUnlocks: 100,
@@ -78,6 +79,95 @@ const plans = {
 };
 
 /**
+ * Format plan features dynamically based on plan configuration properties
+ * (duration, maxActiveJobs, maxDatabaseUnlocks, maxLocationChanges).
+ */
+const formatPlanFeatures = (plan) => {
+    if (!plan) return [];
+
+    const duration = plan.duration;
+    const maxActiveJobs = plan.maxActiveJobs;
+    const maxDatabaseUnlocks = plan.maxDatabaseUnlocks;
+    const maxLocationChanges = plan.maxLocationChanges;
+
+    let features = Array.isArray(plan.features) ? [...plan.features] : [];
+    let hasValidity = false;
+
+    features = features.map(feature => {
+        if (typeof feature !== 'string') return feature;
+        const trimmed = feature.trim();
+
+        // Dynamically update "Valid for X days"
+        if (/^Valid for \d+ days$/i.test(trimmed)) {
+            hasValidity = true;
+            return duration !== undefined ? `Valid for ${duration} days` : feature;
+        }
+
+        // Dynamically update "X Active Job Post" or "X Active Job Posts"
+        if (/^\d+ Active Job Post(s)?$/i.test(trimmed)) {
+            return maxActiveJobs !== undefined ? `${maxActiveJobs} Active Job Post${maxActiveJobs > 1 ? 's' : ''}` : feature;
+        }
+
+        // Dynamically update "X Database Unlocks"
+        if (/^\d+ Database Unlocks$/i.test(trimmed)) {
+            return maxDatabaseUnlocks !== undefined ? `${maxDatabaseUnlocks} Database Unlocks` : feature;
+        }
+
+        // Dynamically update location changes limit
+        if (/(\d+(-\d+)?|\d+) times can change post job location/i.test(trimmed)) {
+            if (maxLocationChanges !== undefined) {
+                return maxLocationChanges === 5 ? '3-5 times can change post job location' : `${maxLocationChanges} times can change post job location`;
+            }
+            return feature;
+        }
+
+        return feature;
+    });
+
+    // If validity feature string was missing and duration exists, append it
+    if (!hasValidity && duration !== undefined && !plan.isAddon) {
+        features.push(`Valid for ${duration} days`);
+    }
+
+    return features;
+};
+
+/**
+ * Get active plans configuration from the database, or fall back to defaults if not set.
+ */
+const getSubscriptionPlansFromDb = async () => {
+    try {
+        let setting = await Setting.findOne({ key: 'subscription_plans' });
+        if (!setting) {
+            setting = await Setting.create({
+                key: 'subscription_plans',
+                value: plans,
+                description: 'Subscription plans configuration (prices and durations)'
+            });
+        }
+        const rawPlans = setting.value || plans;
+        const processedPlans = {};
+        for (const [key, planData] of Object.entries(rawPlans)) {
+            processedPlans[key] = {
+                ...planData,
+                features: formatPlanFeatures(planData)
+            };
+        }
+        return processedPlans;
+    } catch (err) {
+        console.error('Error fetching subscription plans from DB, using defaults:', err);
+        const processedPlans = {};
+        for (const [key, planData] of Object.entries(plans)) {
+            processedPlans[key] = {
+                ...planData,
+                features: formatPlanFeatures(planData)
+            };
+        }
+        return processedPlans;
+    }
+};
+
+/**
  * Activate a subscription plan for an employer
  * @param {string} employerId - User ID
  * @param {string} plan - 'basic', 'pro', or 'premium'
@@ -89,7 +179,8 @@ const activateSubscription = async (employerId, plan) => {
         throw new Error('Only employers can have subscriptions');
     }
 
-    const planConfig = plans[plan];
+    const dbPlans = await getSubscriptionPlansFromDb();
+    const planConfig = dbPlans[plan];
     if (!planConfig) {
         throw new Error('Invalid plan');
     }
@@ -236,7 +327,8 @@ const activateWorklogAddon = async (employerId) => {
         throw new Error('Only employers can purchase addons');
     }
 
-    const addonConfig = plans.worklog_access;
+    const dbPlans = await getSubscriptionPlansFromDb();
+    const addonConfig = dbPlans.worklog_access;
 
     // Find active subscription to attach addon to
     let subscription = await Subscription.findOne({
@@ -305,7 +397,8 @@ const activateWorklogAddon = async (employerId) => {
  * @returns {Promise<number>} The total amount in INR
  */
 const calculatePlanPrice = async (employerId, plan) => {
-    const planConfig = plans[plan];
+    const dbPlans = await getSubscriptionPlansFromDb();
+    const planConfig = dbPlans[plan];
     if (!planConfig) {
         throw new Error('Invalid plan');
     }
@@ -353,5 +446,7 @@ module.exports = {
     activateSubscription,
     activateWorklogAddon,
     calculatePlanPrice,
+    getSubscriptionPlansFromDb,
+    formatPlanFeatures,
     plans
 };

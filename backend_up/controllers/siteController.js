@@ -149,10 +149,24 @@ const getSettings = async (req, res) => {
 const updateSetting = async (req, res) => {
     try {
         const { key } = req.params;
-        const { value } = req.body;
+        let { value } = req.body;
 
         if (value === undefined) {
             return res.status(400).json({ message: 'Value is required' });
+        }
+
+        if (key === 'subscription_plans' && typeof value === 'object' && value !== null) {
+            const { formatPlanFeatures } = require('../services/subscriptionService');
+            if (typeof formatPlanFeatures === 'function') {
+                const updatedPlans = {};
+                for (const [pKey, pVal] of Object.entries(value)) {
+                    updatedPlans[pKey] = {
+                        ...pVal,
+                        features: formatPlanFeatures(pVal)
+                    };
+                }
+                value = updatedPlans;
+            }
         }
 
         const setting = await Setting.findOneAndUpdate(
