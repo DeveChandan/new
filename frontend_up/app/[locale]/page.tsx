@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { Link } from '@/navigation';
-import { motion, Variants } from "framer-motion"
+import { motion, Variants, AnimatePresence } from "framer-motion"
 import { ArrowRight, Briefcase, Users, Zap, Shield, Clock, TrendingUp, Menu, X, ArrowUpRight, Search, CheckCircle2, Star, Sparkles, Globe, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LanguageSwitcher from "@/components/LanguageSwitcher"
 import { useTranslations } from 'next-intl';
 import { ThemeToggle } from "@/components/theme-toggle"
 import PublicNavbar from "@/components/PublicNavbar"
+import ThreeBackground from "@/components/ThreeBackground"
 
 interface SiteStats {
   totalUsers: string
@@ -50,6 +51,7 @@ export default function LandingPage() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
   const [loadingTestimonials, setLoadingTestimonials] = useState(true)
   const [playStoreLink, setPlayStoreLink] = useState('https://drive.google.com/file/d/1LqQiKvRKc6YZQt_AR1xNPD12g569KJgc/view?usp=sharing')
+  const [selectedFeature, setSelectedFeature] = useState<any>(null)
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -118,11 +120,41 @@ export default function LandingPage() {
     },
   }
 
+  const orgSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Shramik Seva",
+    "url": "https://shramik-seva.com",
+    "logo": "https://shramik-seva.com/logo.png"
+  };
+
+  const webSiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Shramik Seva",
+    "url": "https://shramik-seva.com",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://shramik-seva.com/jobs?search={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }}
+      />
       <PublicNavbar isHomePage />
       <section className="relative pt-10 pb-16 sm:pt-20 sm:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden z-10">
-        <div className="max-w-7xl mx-auto">
+        <ThreeBackground />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/10 to-background pointer-events-none z-0" />
+        <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <motion.div
               variants={containerVariants}
@@ -130,14 +162,14 @@ export default function LandingPage() {
               animate="visible"
               className="relative z-20"
             >
-              <motion.div variants={itemVariants} className="inline-flex items-center gap-2 mb-6 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-sm">
+              <motion.div variants={itemVariants} className="inline-flex items-center gap-2 mb-6 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-sm shadow-inner shadow-primary/10">
                 <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary animate-pulse" />
                 <span className="text-[10px] sm:text-xs font-bold tracking-widest uppercase text-primary/80">{t('tagline')}</span>
               </motion.div>
 
               <motion.h1 variants={itemVariants} className="text-4xl xs:text-5xl sm:text-6xl lg:text-7xl font-extrabold text-balance leading-[1.1] mb-6 sm:mb-8">
                 {t('heroTitle').split('. ').map((part, i) => (
-                  <span key={i} className={i === 1 ? "text-primary block sm:inline" : ""}>
+                  <span key={i} className={i === 1 ? "bg-gradient-to-r from-primary via-indigo-500 to-cyan-500 bg-clip-text text-transparent block sm:inline font-black" : ""}>
                     {part}{i < 2 ? '. ' : ''}
                   </span>
                 ))}
@@ -152,13 +184,13 @@ export default function LandingPage() {
                 className="flex flex-col xs:flex-row gap-4 sm:gap-5"
               >
                 <Link href="/auth/register?role=worker" className="flex-1 xs:flex-none">
-                  <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-8 gap-3 shadow-xl shadow-primary/30 hover:shadow-primary/40 transition-all active:scale-95 rounded-2xl text-[1.1rem] sm:text-xl font-bold">
+                  <Button className="w-full bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/95 hover:to-indigo-600/95 text-primary-foreground h-14 px-8 gap-3 shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.03] active:scale-95 rounded-2xl text-[1.1rem] sm:text-xl font-bold flex items-center justify-center">
                     {t('findJobs')}
                     <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
                   </Button>
                 </Link>
                 <Link href="/auth/register?role=employer" className="flex-1 xs:flex-none">
-                  <Button variant="outline" className="w-full h-14 px-8 bg-background/50 border-primary/30 hover:bg-primary/5 hover:text-primary backdrop-blur-sm transition-all active:scale-95 rounded-2xl text-[1.1rem] sm:text-xl font-semibold">
+                  <Button variant="outline" className="w-full h-14 px-8 bg-background/40 border-primary/40 text-foreground hover:bg-primary/10 hover:border-primary/80 backdrop-blur-md transition-all hover:scale-[1.03] active:scale-95 rounded-2xl text-[1.1rem] sm:text-xl font-semibold flex items-center justify-center shadow-lg shadow-background/5">
                     {t('hireTalent')}
                   </Button>
                 </Link>
@@ -269,22 +301,46 @@ export default function LandingPage() {
                 icon: Zap,
                 title: t('features.quickHiring.title'),
                 description: t('features.quickHiring.description'),
+                details: "Our intelligent location-aware matching engine connects you with workers in minutes. Instantly dispatch job details to nearby verified professionals.",
+                bullets: [
+                  "Instant response time (typically under 10 minutes)",
+                  "Location-based local matching (saves commute time)",
+                  "Built-in communication tool to coordinate directly"
+                ],
                 color: "primary",
                 delay: 0.1,
+                actionText: "Post a Job",
+                actionLink: "/auth/register?role=employer"
               },
               {
                 icon: Shield,
                 title: t('features.verifiedProfessionals.title'),
                 description: t('features.verifiedProfessionals.description'),
+                details: "We ensure total trust and peace of mind. Every service provider undergoes background screening, identity checks, and past performance reviews.",
+                bullets: [
+                  "Government ID & address verification",
+                  "Real rating and review history from past employers",
+                  "Vetted skills matching for critical blue-collar roles"
+                ],
                 color: "accent",
                 delay: 0.2,
+                actionText: "Hire Talent",
+                actionLink: "/auth/register?role=employer"
               },
               {
                 icon: Clock,
                 title: t('features.flexibleWork.title'),
                 description: t('features.flexibleWork.description'),
+                details: "Empowering workforce flexibility. Create jobs for single-day emergency tasks or setup long-term contract roles. Workers choose when and where to work.",
+                bullets: [
+                  "Support for temporary daily wages & monthly positions",
+                  "Transparent payment reconciliation system",
+                  "Flexible schedule filters to match lifestyles"
+                ],
                 color: "primary",
                 delay: 0.3,
+                actionText: "Find Jobs",
+                actionLink: "/auth/register?role=worker"
               },
             ].map((feature, idx) => {
               const Icon = feature.icon
@@ -307,7 +363,10 @@ export default function LandingPage() {
                   <h3 className="text-2xl font-bold mb-4 text-foreground leading-tight">{feature.title}</h3>
                   <p className="text-muted-foreground leading-relaxed text-lg">{feature.description}</p>
 
-                  <div className="mt-8 pt-6 border-t border-border/50 flex items-center gap-2 text-primary font-bold group-hover:gap-3 transition-all cursor-pointer">
+                  <div 
+                    onClick={() => setSelectedFeature(feature)}
+                    className="mt-8 pt-6 border-t border-border/50 flex items-center gap-2 text-primary font-bold group-hover:gap-3 transition-all cursor-pointer select-none"
+                  >
                     Learn More <ArrowRight className="w-4 h-4" />
                   </div>
                 </motion.div>
@@ -678,6 +737,85 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      <AnimatePresence>
+        {selectedFeature && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedFeature(null)}
+              className="absolute inset-0 bg-background/80 backdrop-blur-lg"
+            />
+
+            {/* Modal Body */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="relative w-full max-w-lg bg-card border border-border shadow-2xl rounded-3xl p-8 z-10 overflow-hidden"
+            >
+              {/* Decorative top glow */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-indigo-500 to-cyan-500" />
+
+              <button
+                onClick={() => setSelectedFeature(null)}
+                className="absolute top-6 right-6 p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Close details"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-4 mb-6">
+                <div className={`w-12 h-12 rounded-2xl ${
+                  selectedFeature.color === "primary" ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
+                } flex items-center justify-center`}>
+                  <selectedFeature.icon className="w-6 h-6" />
+                </div>
+                <h3 className="text-2xl font-extrabold text-foreground leading-tight">
+                  {selectedFeature.title}
+                </h3>
+              </div>
+
+              <div className="space-y-6">
+                <p className="text-muted-foreground text-lg leading-relaxed">
+                  {selectedFeature.details}
+                </p>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-bold uppercase tracking-widest text-foreground/70">Key Benefits</p>
+                  <ul className="space-y-3">
+                    {selectedFeature.bullets.map((bullet: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-foreground/90 font-medium text-base">{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="pt-4 flex gap-4">
+                  <Button
+                    onClick={() => setSelectedFeature(null)}
+                    variant="outline"
+                    className="flex-1 rounded-xl h-12 text-sm font-semibold"
+                  >
+                    Close
+                  </Button>
+                  <Link href={selectedFeature.actionLink} className="flex-1">
+                    <Button className="w-full bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/95 hover:to-indigo-600/95 text-primary-foreground rounded-xl h-12 text-sm font-bold shadow-lg shadow-primary/20">
+                      {selectedFeature.actionText}
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

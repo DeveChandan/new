@@ -1591,5 +1591,12 @@
             "description": "You don't have any notifications yet",
             "unreadDescription": "You don't have any unread notifications"
         }
+    },
+    "Metadata": {
+        "title": "Shramik Seva - Job Marketplace for Skilled Workers",
+        "description": "Connect skilled workers with meaningful employment opportunities. Find jobs, hire talent, and build your career with Shramik Seva - the modern job marketplace.",
+        "keywords": "job marketplace, skilled workers, employment, hiring, temporary jobs, permanent jobs, blue collar jobs, shramik, seva",
+        "ogTitle": "Shramik Seva - Job Marketplace",
+        "ogDescription": "Connect skilled workers with employment opportunities"
     }
 }

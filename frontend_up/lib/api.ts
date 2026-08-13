@@ -453,6 +453,13 @@ export class APIClient {
     return this.request("/payments/plans");
   }
 
+  async updateSubscriptionPlans(plans: any) {
+    return this.request("/site/settings/subscription_plans", {
+      method: "PATCH",
+      body: JSON.stringify({ value: plans }),
+    });
+  }
+
   async getPaymentPreview(planId: string): Promise<{
     basePrice: number;
     upgradeCredit: number;

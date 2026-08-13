@@ -77,6 +77,43 @@ export function SubscriptionModal({ isOpen, onClose }: SubscriptionModalProps) {
     const t = useTranslations('Subscriptions')
     const [selectedPlan, setSelectedPlan] = useState<string>('pro')
     const [subscribing, setSubscribing] = useState(false)
+    const [dynamicPlans, setDynamicPlans] = useState<SubscriptionPlan[]>(plans)
+
+    useEffect(() => {
+        if (!isOpen) return;
+        apiClient.getSubscriptionPlans()
+            .then((data: any) => {
+                if (Array.isArray(data) && data.length > 0) {
+                    const filtered = data.filter((p: any) => p.planKey && p.planKey !== 'free' && p.planKey !== 'worklog_access');
+                    const mapped: SubscriptionPlan[] = filtered.map((p: any) => {
+                        const styleMeta = plans.find(staticP => staticP.id === p.planKey) || {
+                            color: 'bg-primary/5',
+                            border: 'border-primary/20',
+                            text: 'text-primary',
+                            hover: 'hover:border-primary/40'
+                        };
+                        return {
+                            id: p.planKey,
+                            name: p.name || `${p.duration} Days Plan`,
+                            price: `₹${p.price}`,
+                            duration: `${p.duration} Days`,
+                            jobs: `${p.maxActiveJobs || 1} Active Job Post${(p.maxActiveJobs || 1) > 1 ? 's' : ''}`,
+                            features: p.features || [],
+                            excludedFeatures: p.planKey !== 'premium' ? ['View Worker Worklogs'] : undefined,
+                            tag: p.planKey === 'pro' ? 'Most Popular' : p.planKey === 'premium' ? 'Best Value' : undefined,
+                            color: styleMeta.color,
+                            border: styleMeta.border,
+                            text: styleMeta.text,
+                            hover: styleMeta.hover
+                        };
+                    });
+                    if (mapped.length > 0) {
+                        setDynamicPlans(mapped);
+                    }
+                }
+            })
+            .catch(err => console.error('Failed to fetch modal plans:', err));
+    }, [isOpen]);
 
     const handleSubscribe = async () => {
         setSubscribing(true)
@@ -107,7 +144,7 @@ export function SubscriptionModal({ isOpen, onClose }: SubscriptionModalProps) {
 
                 <div className="space-y-4 pt-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {plans.map((plan) => (
+                        {dynamicPlans.map((plan) => (
                             <div
                                 key={plan.id}
                                 onClick={() => setSelectedPlan(plan.id)}
