@@ -14,6 +14,7 @@ const { sendOTP } = require('../utils/fast2smsService');
 const { getLocale } = require('../utils');
 const { translateUser, translateRating, translateJob } = require('../services/translationService');
 const { plans, getSubscriptionPlansFromDb } = require('../services/subscriptionService');
+const { logActivity } = require('../services/activityService');
 
 const checkMobile = async (req, res) => {
   try {
@@ -63,6 +64,16 @@ const registerUser = async (req, res) => {
   if (user) {
     const token = generateToken(user._id);
     setTokenCookie(res, token);
+    logActivity({
+      user: user._id,
+      userName: user.name,
+      userMobile: user.mobile,
+      role: user.role,
+      action: 'USER_REGISTER',
+      category: 'auth',
+      description: `${user.name} registered as ${user.role}`,
+      req
+    });
     res.status(201).json({ _id: user._id, name: user.name, email: user.email, role: user.role, token });
   } else {
     res.status(400).json({ message: 'Invalid user data' });
@@ -205,6 +216,16 @@ const completeRegistration = async (req, res) => {
       }
       const token = generateToken(user._id);
       setTokenCookie(res, token);
+      logActivity({
+        user: user._id,
+        userName: user.name,
+        userMobile: user.mobile,
+        role: user.role,
+        action: 'USER_REGISTER',
+        category: 'auth',
+        description: `${user.name} completed registration as ${user.role}`,
+        req
+      });
       res.status(201).json({ _id: user._id, name: user.name, email: user.email, role: user.role, companyName: user.companyName, token });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -219,6 +240,20 @@ const loginUser = async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email }).select('+password');
   if (user && (await user.matchPassword(password))) {
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    logActivity({
+      user: user._id,
+      userName: user.name,
+      userMobile: user.mobile,
+      role: user.role,
+      action: 'USER_LOGIN',
+      category: 'auth',
+      description: `${user.name} logged in via password`,
+      req
+    });
+
     const token = generateToken(user._id);
     setTokenCookie(res, token);
     res.json({ _id: user._id, name: user.name, email: user.email, role: user.role, companyName: user.companyName, token });
@@ -896,6 +931,18 @@ const unlockWorkerProfile = async (req, res) => {
       return res.status(404).json({ message: 'Worker not found' });
     }
 
+    logActivity({
+      user: req.user._id,
+      userName: req.user.name,
+      userMobile: req.user.mobile,
+      role: 'employer',
+      action: 'WORKER_PROFILE_UNLOCKED',
+      category: 'profile',
+      description: `Unlocked contact details for worker ${worker.name}`,
+      metadata: { workerId: worker._id, workerName: worker.name },
+      req
+    });
+
     res.status(200).json({
       worker,
       unlocksRemaining: updatedSubscription.maxDatabaseUnlocks - updatedSubscription.databaseUnlocksUsed,
@@ -951,6 +998,17 @@ const changePassword = async (req, res) => {
     user.password = newPassword;
     await user.save();
 
+    logActivity({
+      user: req.user._id,
+      userName: req.user.name,
+      userMobile: req.user.mobile,
+      role: req.user.role,
+      action: 'PASSWORD_CHANGED',
+      category: 'auth',
+      description: `${req.user.name} changed account password`,
+      req
+    });
+
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
     console.error('Error changing password:', error);
@@ -958,7 +1016,169 @@ const changePassword = async (req, res) => {
   }
 };
 
+/**
+ * Initiate mobile number change by sending OTP to the new mobile number
+ */
+const initiateChangeMobile = async (req, res) => {
+  try {
+    const { newMobile } = req.body;
+
+    if (!newMobile) {
+      return res.status(400).json({ message: 'New mobile number is required' });
+    }
+
+    const cleanMobile = newMobile.toString().trim();
+    // Validate standard 10-digit mobile number
+    const mobileRegex = /^[6-9]\d{9}$/;
+    if (!mobileRegex.test(cleanMobile)) {
+      return res.status(400).json({ message: 'Please enter a valid 10-digit mobile number' });
+    }
+
+    const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (currentUser.mobile === cleanMobile) {
+      return res.status(400).json({ message: 'New mobile number cannot be the same as current mobile number' });
+    }
+
+    // Check if newMobile already registered to another account
+    const existingUser = await User.findOne({ mobile: cleanMobile });
+    if (existingUser) {
+      return res.status(400).json({ message: 'This mobile number is already registered with another account' });
+    }
+
+    // Generate secure 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Delete any existing pending change_mobile OTPs for this user or number
+    await Otp.deleteMany({
+      $or: [
+        { mobile: cleanMobile, purpose: 'change_mobile' },
+        { userId: req.user._id, purpose: 'change_mobile' }
+      ]
+    });
+
+    // Save OTP to DB
+    await Otp.create({
+      mobile: cleanMobile,
+      otp,
+      userId: req.user._id,
+      purpose: 'change_mobile'
+    });
+
+    // Send OTP via Fast2SMS
+    const result = await sendOTP(cleanMobile, otp);
+
+    if (process.env.NODE_ENV !== 'production' || result.development) {
+      console.log(`📲 [ChangeMobile] Development OTP for ${cleanMobile}: ${otp}`);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully to the new mobile number',
+      mobile: cleanMobile
+    });
+  } catch (error) {
+    console.error('Error in initiateChangeMobile:', error);
+    res.status(500).json({ message: 'Failed to send OTP for mobile number change' });
+  }
+};
+
+/**
+ * Verify OTP and update mobile number
+ */
+const verifyChangeMobile = async (req, res) => {
+  try {
+    const { newMobile, otp } = req.body;
+
+    if (!newMobile || !otp) {
+      return res.status(400).json({ message: 'Mobile number and OTP are required' });
+    }
+
+    const cleanMobile = newMobile.toString().trim();
+    const cleanOtp = otp.toString().trim();
+
+    // Find valid OTP record
+    const otpDoc = await Otp.findOne({
+      mobile: cleanMobile,
+      otp: cleanOtp,
+      userId: req.user._id,
+      purpose: 'change_mobile'
+    });
+
+    if (!otpDoc) {
+      return res.status(400).json({ message: 'Invalid or expired OTP. Please request a new one.' });
+    }
+
+    // Check again if mobile became taken in the meantime
+    const existingUser = await User.findOne({ mobile: cleanMobile, _id: { $ne: req.user._id } });
+    if (existingUser) {
+      await Otp.deleteMany({ mobile: cleanMobile, purpose: 'change_mobile' });
+      return res.status(400).json({ message: 'This mobile number is already in use by another account' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const oldMobile = user.mobile;
+    user.mobile = cleanMobile;
+    const updatedUser = await user.save();
+
+    // Delete OTP records
+    await Otp.deleteMany({
+      $or: [
+        { mobile: cleanMobile, purpose: 'change_mobile' },
+        { userId: req.user._id, purpose: 'change_mobile' }
+      ]
+    });
+
+    // Log security activity
+    logActivity({
+      user: user._id,
+      userName: user.name,
+      userMobile: cleanMobile,
+      role: user.role,
+      action: 'MOBILE_NUMBER_CHANGED',
+      category: 'security',
+      description: `${user.name} changed mobile number from ${oldMobile} to ${cleanMobile}`,
+      req
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Mobile number updated successfully',
+      mobile: updatedUser.mobile,
+      user: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        mobile: updatedUser.mobile,
+        role: updatedUser.role
+      }
+    });
+  } catch (error) {
+    console.error('Error in verifyChangeMobile:', error);
+    res.status(500).json({ message: 'Server error during mobile verification' });
+  }
+};
+
 const logoutUser = async (req, res) => {
+  if (req.user) {
+    logActivity({
+      user: req.user._id,
+      userName: req.user.name,
+      userMobile: req.user.mobile,
+      role: req.user.role,
+      action: 'USER_LOGOUT',
+      category: 'auth',
+      description: `${req.user.name} logged out`,
+      req
+    });
+  }
   res.cookie('access_token', '', {
     httpOnly: true,
     expires: new Date(0),
@@ -987,5 +1207,7 @@ module.exports = {
   updateSubscription,
   unlockWorkerProfile,
   updatePushToken,
-  changePassword
+  changePassword,
+  initiateChangeMobile,
+  verifyChangeMobile
 };

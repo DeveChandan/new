@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import moment from "moment"
 import { useTranslations } from 'next-intl'
+import { downloadCSV } from "@/lib/utils"
 
 export default function AdminJobsPage() {
   const t = useTranslations('Admin.jobs')
@@ -143,6 +144,23 @@ export default function AdminJobsPage() {
     setCurrentPage(1)
   }
 
+  const handleExportCSV = () => {
+    if (!jobs || jobs.length === 0) return
+    const headers = ["Job ID", "Job Title", "Employer", "Category", "Work Type", "Budget / Salary", "Status", "Approval Status", "Created Date"]
+    const rows = jobs.map(j => [
+      j._id,
+      j.title || "N/A",
+      j.employer?.name || j.employer?.companyName || "N/A",
+      j.category || "N/A",
+      j.workType || "N/A",
+      j.salary || j.wage || j.budget || "N/A",
+      j.status || "N/A",
+      j.isApproved ? "Approved" : "Pending Approval",
+      j.createdAt ? moment(j.createdAt).format("YYYY-MM-DD HH:mm:ss") : "N/A"
+    ])
+    downloadCSV(`jobs_export_${moment().format("YYYYMMDD_HHmm")}`, headers, rows)
+  }
+
   const getStatusBadge = (status: string, isApproved: boolean) => {
     if (!isApproved) {
       return (
@@ -212,9 +230,15 @@ export default function AdminJobsPage() {
             <Filter className="h-4 w-4 mr-1" />
             {tCommon('filters')}
           </Button>
-          <Button variant="outline" size="sm" className="rounded-full">
-            <Download className="h-4 w-4 mr-1" />
-            {tCommon('export')}
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full gap-1.5"
+            onClick={handleExportCSV}
+            disabled={jobs.length === 0}
+          >
+            <Download className="h-4 w-4" />
+            {tCommon('export') || 'Export'}
           </Button>
         </div>
       </div>

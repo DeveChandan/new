@@ -27,7 +27,8 @@ import {
   ChevronRight,
   Search,
   Settings,
-  Sparkles
+  Sparkles,
+  Activity
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import LanguageSwitcher from "@/components/LanguageSwitcher"
@@ -76,6 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       titleKey: "platform",
       items: [
         { href: "/admin/dashboard", icon: LayoutDashboard, labelKey: "dashboard" },
+        { href: "/admin/activity-logs", icon: Activity, labelKey: "activityLogs" },
         { href: "/admin/notification-center", icon: Bell, labelKey: "notificationCenter" },
       ]
     },
@@ -115,13 +117,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     return segments.map((segment, index) => {
       const href = '/' + segments.slice(0, index + 1).join('/')
+      
+      // Handle MongoDB ObjectIds (24 hex characters)
+      if (/^[0-9a-fA-F]{24}$/.test(segment)) {
+        return {
+          label: `#${segment.slice(-6)}`,
+          href,
+          isCurrent: index === segments.length - 1
+        }
+      }
+
       // Convert kebab-case to camelCase for translation keys (e.g., notification-center -> notificationCenter)
       const translationKey = segment === 'admin'
         ? 'admin'
         : segment.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
 
+      // Safe label resolution: Check if key exists in next-intl messages, otherwise humanize string
+      let label = segment.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      if (typeof (t as any).has === 'function' && (t as any).has(translationKey)) {
+        label = t(translationKey as any);
+      }
+
       return {
-        label: t(translationKey),
+        label,
         href,
         isCurrent: index === segments.length - 1
       }

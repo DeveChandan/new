@@ -3,6 +3,7 @@ const Job = require('../models/Job');
 const NotificationTemplate = require('../models/NotificationTemplate');
 const notificationService = require('../services/notificationService');
 const whatsappService = require('../services/whatsappService');
+const { logActivity } = require('../services/activityService');
 
 // Get filtered workers based on job role and location
 const getFilteredWorkers = async (req, res) => {
@@ -157,43 +158,67 @@ const sendBulkNotification = async (req, res) => {
         let whatsAppSuccess = 0;
         let whatsAppFailed = 0;
 
-        // Send notifications
-        for (const user of users) {
-            const personalizedTitle = replaceVariables(title, user);
-            const personalizedMessage = replaceVariables(message, user);
+        // Send notifications concurrently in batches of 25 to optimize throughput
+        const batchSize = 25;
+        for (let i = 0; i < users.length; i += batchSize) {
+            const batch = users.slice(i, i + batchSize);
+            await Promise.allSettled(batch.map(async (user) => {
+                const personalizedTitle = replaceVariables(title, user);
+                const personalizedMessage = replaceVariables(message, user);
 
-            // In-app notification
-            if (channels.inApp) {
-                try {
-                    await notificationService.createAndSend({
-                        userId: user._id,
-                        userRole: user.role,
-                        type: 'system',
-                        title: personalizedTitle,
-                        message: personalizedMessage,
-                        actionUrl: actionUrl || null
-                    });
-                    inAppSuccess++;
-                } catch (error) {
-                    console.error(`Failed to send in-app notification to ${user.email}:`, error);
-                    inAppFailed++;
+                // In-app notification (DB + Socket.IO + Expo Push)
+                if (channels.inApp) {
+                    try {
+                        await notificationService.createAndSend({
+                            userId: user._id,
+                            userRole: user.role,
+                            type: 'system',
+                            title: personalizedTitle,
+                            message: personalizedMessage,
+                            actionUrl: actionUrl || null
+                        });
+                        inAppSuccess++;
+                    } catch (error) {
+                        console.error(`Failed to send in-app notification to ${user.email}:`, error.message);
+                        inAppFailed++;
+                    }
                 }
-            }
 
-            // WhatsApp message
-            if (channels.whatsApp && user.mobile) {
-                try {
-                    await whatsappService.sendMessage(
-                        user.mobile,
-                        `*${personalizedTitle}*\n\n${personalizedMessage}`
-                    );
-                    whatsAppSuccess++;
-                } catch (error) {
-                    console.error(`Failed to send WhatsApp to ${user.mobile}:`, error);
-                    whatsAppFailed++;
+                // WhatsApp message
+                if (channels.whatsApp && user.mobile) {
+                    try {
+                        await whatsappService.sendMessage(
+                            user.mobile,
+                            `*${personalizedTitle}*\n\n${personalizedMessage}`
+                        );
+                        whatsAppSuccess++;
+                    } catch (error) {
+                        console.error(`Failed to send WhatsApp to ${user.mobile}:`, error.message);
+                        whatsAppFailed++;
+                    }
                 }
-            }
+            }));
         }
+
+        // Audit Log
+        logActivity({
+            user: req.user._id,
+            userName: req.user.name,
+            userMobile: req.user.mobile,
+            role: 'admin',
+            action: 'BULK_NOTIFICATION_SENT',
+            category: 'system',
+            description: `Admin sent bulk notification to ${users.length} recipients`,
+            metadata: {
+                totalRecipients: users.length,
+                channels,
+                inAppSuccess,
+                inAppFailed,
+                whatsAppSuccess,
+                whatsAppFailed
+            },
+            req
+        });
 
         res.status(200).json({
             message: 'Bulk notification sent',

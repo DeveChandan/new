@@ -10,6 +10,7 @@ const { getIo } = require('../socket');
 const { getLocale } = require('../utils');
 const { translateJob } = require('../services/translationService');
 const { JOB_STATUSES, JOB_WORKER_STATUSES, APPLICATION_STATUSES } = require('../constants/statusEnums');
+const { logActivity } = require('../services/activityService');
 
 const createJob = async (req, res) => {
   const {
@@ -36,11 +37,12 @@ const createJob = async (req, res) => {
 
   const Subscription = require('../models/Subscription');
 
-  // Check for active paid subscription (no free plan)
+  // Check for active paid subscription
   const subscription = await Subscription.findOne({
     employer: req.user._id,
+    status: 'active',
     endDate: { $gte: new Date() } // Must be active (not expired)
-  });
+  }).sort({ createdAt: -1 });
 
   if (!subscription) {
     return res.status(403).json({
@@ -101,6 +103,18 @@ const createJob = async (req, res) => {
     relatedId: createdJob._id,
     relatedModel: 'Job',
     actionUrl: `/admin/jobs`
+  });
+
+  logActivity({
+    user: req.user._id,
+    userName: req.user.name,
+    userMobile: req.user.mobile,
+    role: 'employer',
+    action: 'JOB_CREATED',
+    category: 'job',
+    description: `Employer ${req.user.name} posted job "${title}"`,
+    metadata: { jobId: createdJob._id, title, salary, workerType, address: location?.address },
+    req
   });
 
   res.status(201).json(createdJob);
@@ -285,6 +299,18 @@ const applyToJob = async (req, res) => {
     const io = getIo();
     io.to(`user:${job.employer._id}`).emit('jobUpdated', { jobId: job._id, job });
 
+    logActivity({
+      user: req.user._id,
+      userName: req.user.name,
+      userMobile: req.user.mobile,
+      role: 'worker',
+      action: 'APPLICATION_SUBMITTED',
+      category: 'application',
+      description: `Worker ${req.user.name} applied to job "${job.title}"`,
+      metadata: { jobId: job._id, jobTitle: job.title },
+      req
+    });
+
     res.status(201).json({ message: 'Applied to job successfully', application });
   } catch (error) {
     console.error(error);
@@ -346,8 +372,9 @@ const updateJob = async (req, res) => {
           // Check for active paid subscription
           const subscription = await Subscription.findOne({
             employer: req.user._id,
+            status: 'active',
             endDate: { $gte: new Date() }
-          });
+          }).sort({ createdAt: -1 });
 
           if (!subscription) {
             return res.status(403).json({
@@ -800,6 +827,18 @@ const updateJobLocation = async (req, res) => {
     };
 
     await job.save();
+
+    logActivity({
+      user: req.user._id,
+      userName: req.user.name,
+      userMobile: req.user.mobile,
+      role: 'employer',
+      action: 'JOB_LOCATION_CHANGED',
+      category: 'job',
+      description: `Employer updated location for job "${job.title}"`,
+      metadata: { jobId: job._id, address: location.address },
+      req
+    });
 
     res.status(200).json({
       job,

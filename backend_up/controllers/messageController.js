@@ -43,15 +43,24 @@ const addMessage = async (req, res) => {
     console.log(`[MessageController] Sender: ${senderId}, Receiver: ${receiverId}, Members: ${conversation.members}`);
 
     if (receiverId) {
-      const receiverUser = await User.findById(receiverId).select('role');
+      const [receiverUser, senderUser] = await Promise.all([
+        User.findById(receiverId).select('role'),
+        User.findById(senderId).select('name role')
+      ]);
+
       if (receiverUser) {
+        const senderName = senderUser?.name || 'Someone';
+        const messageText = savedMessage.text
+          ? (savedMessage.text.length > 80 ? savedMessage.text.substring(0, 77) + '...' : savedMessage.text)
+          : 'Sent an attachment / image';
+
         // Use the centralized service to create and send the notification
         await notificationService.createAndSend({
           userId: receiverId,
           userRole: receiverUser.role,
           type: 'new_message',
-          title: 'New Message',
-          message: `You have a new message.`,
+          title: `New message from ${senderName}`,
+          message: messageText,
           relatedId: savedMessage.conversationId,
           relatedModel: 'Conversation',
           actionUrl: `/messages?conversationId=${savedMessage.conversationId}`

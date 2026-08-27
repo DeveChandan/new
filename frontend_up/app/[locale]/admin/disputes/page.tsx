@@ -27,7 +27,7 @@ export default function AdminDisputesPage() {
   const fetchDisputes = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await apiClient.getAllDisputes({ page: currentPage, pageSize })
+      const data: any = await apiClient.getAllDisputes({ page: currentPage, pageSize })
       // Assuming data is an array or object with disputes
       if (Array.isArray(data)) {
         setDisputes(data)

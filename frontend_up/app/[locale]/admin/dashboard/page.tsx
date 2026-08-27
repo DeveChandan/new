@@ -22,6 +22,9 @@ import { Button } from "@/components/ui/button"
 import UserRegistrationsChart from "@/components/charts/UserRegistrationsChart"
 import JobsByCategoryChart from "@/components/charts/JobsByCategoryChart"
 import { useTranslations } from 'next-intl'
+import { useRouter } from "@/navigation"
+import moment from "moment"
+import { downloadCSV } from "@/lib/utils"
 
 // Helper function to format relative time
 const getRelativeTime = (timestamp: string | Date) => {
@@ -41,6 +44,7 @@ const getRelativeTime = (timestamp: string | Date) => {
 export default function AdminDashboardPage() {
   const t = useTranslations('Admin.dashboard')
   const tCommon = useTranslations('Common')
+  const router = useRouter()
   const [dashboardData, setDashboardData] = useState<any>(null)
   const [analyticsData, setAnalyticsData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -66,6 +70,25 @@ export default function AdminDashboardPage() {
 
     fetchData()
   }, [timeRange])
+
+  const handleExportCSV = () => {
+    if (!dashboardData) return
+    const headers = ["Metric", "Value"]
+    const rows = [
+      ["Total Users", dashboardData?.totalUsers || 0],
+      ["Total Workers", dashboardData?.totalWorkers || 0],
+      ["Total Employers", dashboardData?.totalEmployers || 0],
+      ["Total Jobs", dashboardData?.totalJobs || 0],
+      ["Open Jobs", dashboardData?.openJobs || 0],
+      ["Closed Jobs", dashboardData?.closedJobs || 0],
+      ["Total Revenue (INR)", dashboardData?.totalRevenue || 0],
+      ["Pending Approvals", dashboardData?.pendingApprovals || 0],
+      ["Pending Documents", dashboardData?.pendingDocs || 0],
+      ["Active Worklogs", dashboardData?.activeWorklogs || 0],
+      ["Export Date", moment().format("YYYY-MM-DD HH:mm:ss")]
+    ]
+    downloadCSV(`dashboard_summary_${moment().format("YYYYMMDD_HHmm")}`, headers, rows)
+  }
 
   if (loading) {
     return (
@@ -106,8 +129,14 @@ export default function AdminDashboardPage() {
             <option value="30d">{t('timeRange.30d')}</option>
             <option value="90d">{t('timeRange.90d')}</option>
           </select>
-          <Button variant="outline" size="sm" className="rounded-full">
-            <Download className="h-4 w-4 mr-1" />
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full gap-1.5"
+            onClick={handleExportCSV}
+            disabled={!dashboardData}
+          >
+            <Download className="h-4 w-4" />
             {t('export')}
           </Button>
         </div>
@@ -352,7 +381,12 @@ export default function AdminDashboardPage() {
             <CardTitle className="text-lg md:text-xl font-semibold text-foreground">
               {t('recentActivity.title')}
             </CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-primary hover:text-primary/80 hover:bg-primary/10 gap-1"
+              onClick={() => router.push('/admin/activity-logs')}
+            >
               {t('recentActivity.viewAll')}
             </Button>
           </div>

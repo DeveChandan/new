@@ -11,6 +11,10 @@ const Dispute = require('../models/Dispute');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const SupportMessage = require('../models/SupportMessage');
+const ActivityLog = require('../models/ActivityLog');
+const Setting = require('../models/Setting');
+const { updateActiveRateLimits, getActiveRateLimits, DEFAULT_RATE_LIMITS } = require('../middleware/rateLimiter');
+const { logActivity } = require('../services/activityService');
 const mongoose = require('mongoose');
 const dayjs = require('dayjs'); // Import dayjs
 
@@ -427,7 +431,7 @@ const deleteRating = async (req, res) => {
   try {
     const rating = await Rating.findById(req.params.id);
     if (rating) {
-      await rating.remove();
+      await rating.deleteOne();
       console.log('API Response: deleteRating', { message: 'Rating removed' });
       res.json({ message: 'Rating removed' });
     } else {
@@ -633,6 +637,7 @@ const getAllSubscriptions = async (req, res) => {
     const totalSubscriptions = await Subscription.countDocuments();
     const subscriptions = await Subscription.find({})
       .populate('employer', 'name email companyName')
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(pageSize));
     res.json({
@@ -698,7 +703,7 @@ const deleteSubscription = async (req, res) => {
   try {
     const subscription = await Subscription.findById(req.params.id);
     if (subscription) {
-      await subscription.remove();
+      await subscription.deleteOne();
       res.json({ message: 'Subscription removed' });
     } else {
       res.status(404).json({ message: 'Subscription not found' });
@@ -1191,6 +1196,376 @@ const deleteSupportMessage = async (req, res) => {
   }
 };
 
+/**
+ * Admin: Get Paginated Activity Logs with filters
+ */
+const getActivityLogs = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      pageSize = 20,
+      role,
+      category,
+      action,
+      platform,
+      userId,
+      search,
+      startDate,
+      endDate
+    } = req.query;
+
+    const query = {};
+
+    if (role && role !== 'all') {
+      query.role = role;
+    }
+
+    if (category && category !== 'all') {
+      query.category = category;
+    }
+
+    if (action && action !== 'all') {
+      query.action = action;
+    }
+
+    if (platform && platform !== 'all') {
+      query.platform = platform;
+    }
+
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      query.user = userId;
+    }
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
+    }
+
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query.$or = [
+        { description: searchRegex },
+        { userName: searchRegex },
+        { userMobile: searchRegex },
+        { ip: searchRegex },
+        { action: searchRegex }
+      ];
+    }
+
+    const skip = (Number(page) - 1) * Number(pageSize);
+    const totalLogs = await ActivityLog.countDocuments(query);
+    const logs = await ActivityLog.find(query)
+      .populate('user', 'name email mobile role profilePicture')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(pageSize));
+
+    res.json({
+      logs,
+      page: Number(page),
+      pageSize: Number(pageSize),
+      pages: Math.ceil(totalLogs / Number(pageSize)),
+      total: totalLogs
+    });
+  } catch (error) {
+    console.error('Error in getActivityLogs:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * Admin: Get Activity Analytics Summary (DAU/WAU/MAU, platform split, action breakdown)
+ */
+const getActivityAnalytics = async (req, res) => {
+  try {
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    const [
+      dauUsers,
+      wauUsers,
+      mauUsers,
+      totalEvents24h,
+      totalEvents7d,
+      platformBreakdown,
+      topActions,
+      topCategories,
+      dailyTimeline,
+      recentMilestones
+    ] = await Promise.all([
+      // Distinct active users in last 24 hours (DAU)
+      ActivityLog.distinct('user', { createdAt: { $gte: oneDayAgo }, user: { $ne: null } }),
+
+      // Distinct active users in last 7 days (WAU)
+      ActivityLog.distinct('user', { createdAt: { $gte: sevenDaysAgo }, user: { $ne: null } }),
+
+      // Distinct active users in last 30 days (MAU)
+      ActivityLog.distinct('user', { createdAt: { $gte: thirtyDaysAgo }, user: { $ne: null } }),
+
+      // Total events count in last 24h
+      ActivityLog.countDocuments({ createdAt: { $gte: oneDayAgo } }),
+
+      // Total events count in last 7d
+      ActivityLog.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+
+      // Platform distribution in last 30 days
+      ActivityLog.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: '$platform', count: { $sum: 1 } } },
+        { $project: { _id: 0, platform: '$_id', count: '$count' } }
+      ]),
+
+      // Top user actions in last 30 days
+      ActivityLog.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: '$action', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+        { $project: { _id: 0, action: '$_id', count: '$count' } }
+      ]),
+
+      // Categories breakdown
+      ActivityLog.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $project: { _id: 0, category: '$_id', count: '$count' } }
+      ]),
+
+      // 14-day daily activity timeline
+      ActivityLog.aggregate([
+        { $match: { createdAt: { $gte: fourteenDaysAgo } } },
+        {
+          $group: {
+            _id: {
+              year: { $year: '$createdAt' },
+              month: { $month: '$createdAt' },
+              day: { $dayOfMonth: '$createdAt' }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
+      ]),
+
+      // Last 10 high-value milestones
+      ActivityLog.find({
+        action: {
+          $in: [
+            'USER_REGISTER',
+            'USER_LOGIN',
+            'JOB_CREATED',
+            'WORKER_PROFILE_UNLOCKED',
+            'SUBSCRIPTION_ACTIVATED',
+            'SUBSCRIPTION_UPGRADED'
+          ]
+        }
+      })
+        .populate('user', 'name email role')
+        .sort({ createdAt: -1 })
+        .limit(10)
+    ]);
+
+    res.json({
+      success: true,
+      metrics: {
+        dau: dauUsers.length,
+        wau: wauUsers.length,
+        mau: mauUsers.length,
+        totalEvents24h,
+        totalEvents7d,
+      },
+      platformBreakdown,
+      topActions,
+      topCategories,
+      dailyTimeline: dailyTimeline.map(item => ({
+        date: `${item._id.year}-${String(item._id.month).padStart(2, '0')}-${String(item._id.day).padStart(2, '0')}`,
+        count: item.count
+      })),
+      recentMilestones
+    });
+  } catch (error) {
+    console.error('Error in getActivityAnalytics:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * Admin: Get active rate limit settings
+ */
+const getRateLimitSettings = async (req, res) => {
+  try {
+    const limits = getActiveRateLimits();
+    res.json({
+      success: true,
+      limits: limits.active,
+      defaults: limits.defaults
+    });
+  } catch (error) {
+    console.error('Error in getRateLimitSettings:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * Admin: Update rate limit settings in real-time
+ */
+const updateRateLimitSettings = async (req, res) => {
+  try {
+    const {
+      apiMax,
+      otpMax,
+      authMax,
+      jobMax,
+      uploadMax,
+      messageMax
+    } = req.body;
+
+    const sanitizedLimits = {};
+
+    // Validate bounds
+    if (apiMax !== undefined) {
+      const val = Number(apiMax);
+      if (isNaN(val) || val < 10 || val > 10000) {
+        return res.status(400).json({ message: 'API limit must be between 10 and 10,000 requests per 15 minutes' });
+      }
+      sanitizedLimits.apiMax = val;
+    }
+
+    if (otpMax !== undefined) {
+      const val = Number(otpMax);
+      if (isNaN(val) || val < 1 || val > 50) {
+        return res.status(400).json({ message: 'OTP limit must be between 1 and 50 requests per 10 minutes' });
+      }
+      sanitizedLimits.otpMax = val;
+    }
+
+    if (authMax !== undefined) {
+      const val = Number(authMax);
+      if (isNaN(val) || val < 2 || val > 100) {
+        return res.status(400).json({ message: 'Auth failed attempt limit must be between 2 and 100 per 15 minutes' });
+      }
+      sanitizedLimits.authMax = val;
+    }
+
+    if (jobMax !== undefined) {
+      const val = Number(jobMax);
+      if (isNaN(val) || val < 1 || val > 200) {
+        return res.status(400).json({ message: 'Job posting limit must be between 1 and 200 per hour' });
+      }
+      sanitizedLimits.jobMax = val;
+    }
+
+    if (uploadMax !== undefined) {
+      const val = Number(uploadMax);
+      if (isNaN(val) || val < 1 || val > 200) {
+        return res.status(400).json({ message: 'Upload limit must be between 1 and 200 per hour' });
+      }
+      sanitizedLimits.uploadMax = val;
+    }
+
+    if (messageMax !== undefined) {
+      const val = Number(messageMax);
+      if (isNaN(val) || val < 10 || val > 1000) {
+        return res.status(400).json({ message: 'Message limit must be between 10 and 1,000 per 15 minutes' });
+      }
+      sanitizedLimits.messageMax = val;
+    }
+
+    // Persist to MongoDB Setting collection
+    const currentSetting = await Setting.findOne({ key: 'rate_limits' });
+    const mergedValues = {
+      ...DEFAULT_RATE_LIMITS,
+      ...(currentSetting?.value || {}),
+      ...sanitizedLimits
+    };
+
+    await Setting.findOneAndUpdate(
+      { key: 'rate_limits' },
+      {
+        key: 'rate_limits',
+        value: mergedValues,
+        description: 'Dynamic in-memory rate limiting configuration'
+      },
+      { upsert: true, new: true }
+    );
+
+    // Apply hot-reload in memory immediately
+    const updatedLimits = updateActiveRateLimits(mergedValues);
+
+    logActivity({
+      user: req.user._id,
+      userName: req.user.name,
+      userMobile: req.user.mobile,
+      role: 'admin',
+      action: 'RATE_LIMITS_UPDATED',
+      category: 'system',
+      description: 'Admin updated platform rate limit configuration in real time',
+      metadata: sanitizedLimits,
+      req
+    });
+
+    res.json({
+      success: true,
+      message: 'Rate limit settings updated successfully in real time',
+      limits: updatedLimits
+    });
+  } catch (error) {
+    console.error('Error in updateRateLimitSettings:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * Admin: Reset rate limits to factory defaults
+ */
+const resetRateLimitSettings = async (req, res) => {
+  try {
+    await Setting.findOneAndUpdate(
+      { key: 'rate_limits' },
+      {
+        key: 'rate_limits',
+        value: DEFAULT_RATE_LIMITS,
+        description: 'Dynamic in-memory rate limiting configuration'
+      },
+      { upsert: true, new: true }
+    );
+
+    const resetLimits = updateActiveRateLimits(DEFAULT_RATE_LIMITS);
+
+    logActivity({
+      user: req.user._id,
+      userName: req.user.name,
+      userMobile: req.user.mobile,
+      role: 'admin',
+      action: 'RATE_LIMITS_RESET',
+      category: 'system',
+      description: 'Admin restored platform rate limits to factory defaults',
+      metadata: DEFAULT_RATE_LIMITS,
+      req
+    });
+
+    res.json({
+      success: true,
+      message: 'Rate limit settings restored to factory defaults',
+      limits: resetLimits
+    });
+  } catch (error) {
+    console.error('Error in resetRateLimitSettings:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 module.exports = {
   getAdminDashboard,
   getUsers,
@@ -1216,5 +1591,10 @@ module.exports = {
   deleteWorklog,
   getSupportMessages,
   updateSupportMessageStatus,
-  deleteSupportMessage
+  deleteSupportMessage,
+  getActivityLogs,
+  getActivityAnalytics,
+  getRateLimitSettings,
+  updateRateLimitSettings,
+  resetRateLimitSettings
 };

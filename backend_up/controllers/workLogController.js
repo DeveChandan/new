@@ -6,6 +6,7 @@ const { getDistance, getLocale } = require('../utils');
 const notificationService = require('../services/notificationService');
 const { translateWorkLog } = require('../services/translationService');
 const { WORKLOG_STATUSES } = require('../constants/statusEnums');
+const { logActivity } = require('../services/activityService');
 
 // Helper function to find the next pending work log for a worker on a job
 const findActiveWorkLog = async (jobId, workerId) => {
@@ -309,6 +310,18 @@ const verifyStartOtp = async (req, res) => {
     io.to(`user:${employerId}`).emit('workLogUpdated', { jobId, workerId, workLog: updatedWorkLog });
     io.to(`job:${jobId}`).emit('workLogUpdated', { jobId, workerId, workLog: updatedWorkLog });
 
+    logActivity({
+      user: req.user._id,
+      userName: req.user.name,
+      userMobile: req.user.mobile,
+      role: req.user.role,
+      action: 'WORK_STARTED',
+      category: 'worklog',
+      description: `Work start OTP verified for job ${jobId}`,
+      metadata: { jobId, workerId },
+      req
+    });
+
     res.json({ message: 'Start OTP verified successfully' });
   } catch (error) {
     console.error(error);
@@ -440,6 +453,18 @@ const verifyEndOtp = async (req, res) => {
     const employerId = updatedWorkLog.employer._id ? updatedWorkLog.employer._id.toString() : updatedWorkLog.employer.toString();
     io.to(`user:${employerId}`).emit('workLogUpdated', { jobId, workerId, workLog: updatedWorkLog });
     io.to(`job:${jobId}`).emit('workLogUpdated', { jobId, workerId, workLog: updatedWorkLog });
+
+    logActivity({
+      user: req.user._id,
+      userName: req.user.name,
+      userMobile: req.user.mobile,
+      role: req.user.role,
+      action: 'WORK_COMPLETED',
+      category: 'worklog',
+      description: `Work end OTP verified for job ${jobId}`,
+      metadata: { jobId, workerId },
+      req
+    });
 
     res.json({ message: 'End OTP verified successfully' });
   } catch (error) {

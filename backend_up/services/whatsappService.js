@@ -99,9 +99,51 @@ const sendWorkerSuggestion = (employerPhone, data) => {
     return sendTemplateMessage(employerPhone, WHATSAPP_TEMPLATE_WORKER_SUGGESTION, params);
 };
 
+const sendMessage = async (to, text) => {
+    if (!WHATSAPP_PHONE_NUMBER_ID || !WHATSAPP_ACCESS_TOKEN) {
+        console.warn(`[WhatsAppService] WhatsApp credentials not configured in environment. Skipping direct message to ${to}`);
+        return;
+    }
+
+    if (!to) {
+        console.error(`WhatsApp service error: 'to' phone number is missing.`);
+        return;
+    }
+
+    let formattedTo = String(to).replace(/\D/g, '');
+    if (formattedTo.length === 10) {
+        formattedTo = '91' + formattedTo;
+    }
+
+    const apiUrl = `https://graph.facebook.com/${WHATSAPP_API_VERSION || 'v19.0'}/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
+
+    const payload = {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: formattedTo,
+        type: "text",
+        text: { preview_url: false, body: text }
+    };
+
+    try {
+        await axios.post(apiUrl, payload, {
+            headers: {
+                'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        console.log(`Successfully sent WhatsApp message to ${to}`);
+    } catch (error) {
+        const errorData = error.response ? error.response.data : error.message;
+        console.error(`Failed to send WhatsApp message to ${to}:`, JSON.stringify(errorData, null, 2));
+    }
+};
+
 module.exports = {
+    sendMessage,
     sendApplicationNotification,
     sendHiredNotification,
     sendJobSuggestion,
     sendWorkerSuggestion,
 };
+

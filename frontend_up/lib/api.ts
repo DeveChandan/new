@@ -99,21 +99,27 @@ export class APIClient {
     }
 
     if (!response.ok) {
-      if (response.status === 429 && typeof window !== "undefined") {
-        // Only trigger event for non-silent requests (profile checks are silent)
-        if (endpoint !== "/users/profile") {
-          window.dispatchEvent(new CustomEvent("api-rate-limit", { 
-            detail: { message: "Too many requests. Please wait a few minutes." } 
-          }));
-        }
-      }
-
-      let errorData;
+      let errorData: any;
       try {
         errorData = JSON.parse(responseText);
       } catch (e) {
         errorData = { message: "An unknown error occurred" };
       }
+
+      if (response.status === 429 && typeof window !== "undefined") {
+        // Only trigger event for non-silent requests (profile checks are silent)
+        if (endpoint !== "/users/profile") {
+          const limitMessage = errorData?.message || "Too many requests. Please wait a few minutes.";
+          const retryAfter = errorData?.retryAfter || response.headers.get("Retry-After");
+          window.dispatchEvent(new CustomEvent("api-rate-limit", { 
+            detail: { 
+              message: limitMessage,
+              retryAfter: retryAfter ? Number(retryAfter) : undefined
+            } 
+          }));
+        }
+      }
+
       throw new APIError(errorData.message || `API Error: ${response.status}`, response.status, errorData);
     }
 
@@ -660,12 +666,12 @@ export class APIClient {
     })
   }
 
-  async getAllApplicationsForEmployer() {
-    return this.request(`/applications/employer`);
+  async getAllApplicationsForEmployer(): Promise<any[]> {
+    return this.request<any[]>(`/applications/employer`);
   }
 
-  async getApplicationsForJob(jobId: string) {
-    return this.request(`/applications/job/${jobId}`);
+  async getApplicationsForJob(jobId: string): Promise<any[]> {
+    return this.request<any[]>(`/applications/job/${jobId}`);
   }
 
   async rejectApplicant(jobId: string, applicantId: string) {
@@ -759,6 +765,132 @@ export class APIClient {
     return this.request(`/admin/analytics${query}`)
   }
 
+  async getActivityLogs(params?: {
+    page?: number;
+    pageSize?: number;
+    role?: string;
+    category?: string;
+    action?: string;
+    platform?: string;
+    userId?: string;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{ logs: any[]; page: number; pageSize: number; pages: number; total: number }> {
+    const query = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== "") as any).toString();
+    return this.request(`/admin/activity-logs?${query}`);
+  }
+
+  async getActivityAnalytics(): Promise<{
+    success: boolean;
+    metrics: {
+      dau: number;
+      wau: number;
+      mau: number;
+      totalEvents24h: number;
+      totalEvents7d: number;
+    };
+    platformBreakdown: Array<{ platform: string; count: number }>;
+    topActions: Array<{ action: string; count: number }>;
+    topCategories: Array<{ category: string; count: number }>;
+    dailyTimeline: Array<{ date: string; count: number }>;
+    recentMilestones: any[];
+  }> {
+    return this.request("/admin/analytics/activity-summary");
+  }
+
+  async getRateLimitSettings(): Promise<{
+    success: boolean;
+    limits: {
+      apiMax: number;
+      apiWindowMin: number;
+      otpMax: number;
+      otpWindowMin: number;
+      authMax: number;
+      authWindowMin: number;
+      jobMax: number;
+      jobWindowHours: number;
+      uploadMax: number;
+      uploadWindowHours: number;
+      messageMax: number;
+      messageWindowMin: number;
+    };
+    defaults: any;
+  }> {
+    return this.request<{
+      success: boolean;
+      limits: any;
+      defaults: any;
+    }>("/admin/settings/rate-limits");
+  }
+
+  async updateRateLimitSettings(settings: {
+    apiMax?: number;
+    otpMax?: number;
+    authMax?: number;
+    jobMax?: number;
+    uploadMax?: number;
+    messageMax?: number;
+  }): Promise<{ success: boolean; message: string; limits?: any }> {
+    return this.request<{ success: boolean; message: string; limits?: any }>("/admin/settings/rate-limits", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async resetRateLimitSettings(): Promise<{ success: boolean; message: string; limits?: any }> {
+    return this.request<{ success: boolean; message: string; limits?: any }>("/admin/settings/rate-limits/reset", {
+      method: "POST",
+    });
+  }
+
+  async getAppVersionSettings(): Promise<{ success: boolean; config: any }> {
+    return this.request<{ success: boolean; config: any }>("/app-version/config");
+  }
+
+  async updateAppVersionSettings(data: { android?: any; ios?: any }): Promise<{ success: boolean; message: string; config: any }> {
+    return this.request<{ success: boolean; message: string; config: any }>("/app-version/config", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getActiveAnnouncements(params?: { platform?: string; role?: string }): Promise<{ success: boolean; count: number; announcements: any[] }> {
+    const query = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v !== undefined) as any).toString();
+    return this.request<{ success: boolean; count: number; announcements: any[] }>(`/announcements/active${query ? `?${query}` : ''}`);
+  }
+
+  async getAllAnnouncements(params?: { page?: number; pageSize?: number }): Promise<{ success: boolean; announcements: any[]; total: number; page: number; pages: number }> {
+    const query = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v !== undefined) as any).toString();
+    return this.request<{ success: boolean; announcements: any[]; total: number; page: number; pages: number }>(`/announcements/admin${query ? `?${query}` : ''}`);
+  }
+
+  async createAnnouncement(data: any): Promise<{ success: boolean; message: string; announcement: any }> {
+    return this.request<{ success: boolean; message: string; announcement: any }>("/announcements/admin", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAnnouncement(id: string, data: any): Promise<{ success: boolean; message: string; announcement: any }> {
+    return this.request<{ success: boolean; message: string; announcement: any }>(`/announcements/admin/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async toggleAnnouncementStatus(id: string): Promise<{ success: boolean; message: string; announcement: any }> {
+    return this.request<{ success: boolean; message: string; announcement: any }>(`/announcements/admin/${id}/toggle`, {
+      method: "PATCH",
+    });
+  }
+
+  async deleteAnnouncement(id: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/announcements/admin/${id}`, {
+      method: "DELETE",
+    });
+  }
+
   async getAllUsers(params?: {
     name?: string;
     role?: string;
@@ -846,7 +978,8 @@ export class APIClient {
   async getAllDisputes(params?: {
     page?: number;
     pageSize?: number;
-  }): Promise<any[]> {
+    status?: string;
+  }): Promise<{ disputes: any[]; page: number; pages: number; total: number } | any[]> {
     const query = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v !== undefined) as any).toString();
     return this.request(`/admin/disputes?${query}`);
   }

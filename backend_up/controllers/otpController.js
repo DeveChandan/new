@@ -101,6 +101,23 @@ const verifyOtp = async (req, res) => {
     // Delete used OTP
     await Otp.deleteOne({ _id: otpRecord._id });
 
+    // Update lastLoginAt
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    // Log Activity
+    const { logActivity } = require('../services/activityService');
+    logActivity({
+      user: user._id,
+      userName: user.name,
+      userMobile: user.mobile,
+      role: user.role,
+      action: 'USER_LOGIN',
+      category: 'auth',
+      description: `${user.name} logged in via OTP verification`,
+      req
+    });
+
     console.log('API Response: verifyOtp - Success');
     const token = generateToken(user._id);
     setTokenCookie(res, token);

@@ -18,8 +18,9 @@ const {
 } = require('../controllers/jobController');
 const { protect, optionalProtect } = require('../middleware/authMiddleware');
 const { requireActiveSubscription, checkLocationChangeLimit } = require('../middleware/subscriptionCheck');
+const { jobCreationLimiter } = require('../middleware/rateLimiter');
 
-router.route('/').post(protect, createJob).get(getJobs);
+router.route('/').post(protect, jobCreationLimiter, createJob).get(getJobs);
 router.get('/assigned', protect, getAssignedJobs);
 router.get('/hired', protect, getHiredJobsForEmployer); // Added this
 router.get('/my-jobs', protect, getEmployerJobs);

@@ -9,9 +9,19 @@ const otpSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  registrationData: { // Add this field
-    type: Object, // To store the entire req.body for registration
-    required: false, // Not all OTPs will be for registration
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false,
+  },
+  purpose: {
+    type: String,
+    enum: ['registration', 'change_mobile', 'login', 'forgot_password'],
+    default: 'registration',
+  },
+  registrationData: { // To store data during registration
+    type: Object,
+    required: false,
   },
   createdAt: {
     type: Date,

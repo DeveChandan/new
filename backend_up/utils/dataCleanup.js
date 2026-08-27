@@ -125,6 +125,60 @@ const validateDataIntegrity = async () => {
     }
 };
 
+/**
+ * Transition past-due active subscriptions to 'expired'
+ */
+const cleanExpiredSubscriptions = async () => {
+    try {
+        console.log('🧹 Checking for expired subscriptions...');
+        const Subscription = require('../models/Subscription');
+        const now = new Date();
+
+        const result = await Subscription.updateMany(
+            {
+                status: 'active',
+                endDate: { $lt: now }
+            },
+            {
+                $set: { status: 'expired' }
+            }
+        );
+
+        if (result.modifiedCount > 0) {
+            console.log(`✅ Marked ${result.modifiedCount} subscription(s) as expired`);
+        } else {
+            console.log('✅ No expired subscriptions to update');
+        }
+
+        return { expired: result.modifiedCount };
+    } catch (error) {
+        console.error('❌ Error updating expired subscriptions:', error);
+        throw error;
+    }
+};
+
+/**
+ * Clean up old activity logs (older than 90 days)
+ */
+const cleanOldActivityLogs = async () => {
+    try {
+        console.log('🧹 Cleaning old activity logs (older than 90 days)...');
+        const ActivityLog = require('../models/ActivityLog');
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+        const result = await ActivityLog.deleteMany({
+            createdAt: { $lt: ninetyDaysAgo }
+        });
+
+        console.log(`✅ Deleted ${result.deletedCount} old activity log(s)`);
+        return { deleted: result.deletedCount };
+    } catch (error) {
+        console.error('❌ Error cleaning old activity logs:', error);
+        throw error;
+    }
+};
+
 const { cleanUnusedFiles } = require('./cleanUnusedFiles');
 
 /**
@@ -137,6 +191,8 @@ const runAllCleanupTasks = async () => {
         orphanedApplications: await cleanOrphanedApplications(),
         oldNotifications: await cleanOldNotifications(),
         expiredOtps: await cleanExpiredOtps(),
+        expiredSubscriptions: await cleanExpiredSubscriptions(),
+        oldActivityLogs: await cleanOldActivityLogs(),
         unusedFiles: await cleanUnusedFiles(),
         dataIntegrity: await validateDataIntegrity()
     };
@@ -149,6 +205,8 @@ module.exports = {
     cleanOrphanedApplications,
     cleanOldNotifications,
     cleanExpiredOtps,
+    cleanExpiredSubscriptions,
+    cleanOldActivityLogs,
     validateDataIntegrity,
     runAllCleanupTasks
 };

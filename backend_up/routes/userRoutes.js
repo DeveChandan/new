@@ -19,19 +19,22 @@ const {
   unlockWorkerProfile,
   updatePushToken,
   checkMobile,
-  changePassword
+  changePassword,
+  initiateChangeMobile,
+  verifyChangeMobile
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 const { admin } = require('../middleware/adminMiddleware');
 const { requireActiveSubscription, checkDatabaseUnlockLimit } = require('../middleware/subscriptionCheck');
+const { otpLimiter, authLimiter } = require('../middleware/rateLimiter');
 
-router.post('/check-mobile', checkMobile);
-router.post('/initiate-register', initiateRegistration);
-router.post('/register-initiate', initiateRegistration); // Alias for backward compatibility
-router.post('/complete-register', completeRegistration);
-router.post('/register-complete', completeRegistration); // Alias for backward compatibility
-router.post('/', registerUser);
-router.post('/login', loginUser);
+router.post('/check-mobile', otpLimiter, checkMobile);
+router.post('/initiate-register', otpLimiter, initiateRegistration);
+router.post('/register-initiate', otpLimiter, initiateRegistration); // Alias for backward compatibility
+router.post('/complete-register', authLimiter, completeRegistration);
+router.post('/register-complete', authLimiter, completeRegistration); // Alias for backward compatibility
+router.post('/', authLimiter, registerUser);
+router.post('/login', authLimiter, loginUser);
 router.post('/logout', protect, logoutUser);
 router.route('/profile').get(protect, getUserProfile).put(protect, updateUserProfile);
 router.get('/profile/:id', protect, getPublicUserProfile);
@@ -50,5 +53,9 @@ router.post('/workers/:id/unlock', protect, requireActiveSubscription, checkData
 router.put('/push-token', protect, updatePushToken);
 
 router.put('/change-password', protect, changePassword);
+
+// Change Mobile Number with OTP Verification
+router.post('/change-mobile/send-otp', protect, otpLimiter, initiateChangeMobile);
+router.post('/change-mobile/verify-otp', protect, authLimiter, verifyChangeMobile);
 
 module.exports = router;

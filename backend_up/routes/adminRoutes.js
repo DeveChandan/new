@@ -26,7 +26,12 @@ const {
   deleteWorklog,
   getSupportMessages,
   updateSupportMessageStatus,
-  deleteSupportMessage
+  deleteSupportMessage,
+  getActivityLogs,
+  getActivityAnalytics,
+  getRateLimitSettings,
+  updateRateLimitSettings,
+  resetRateLimitSettings
 } = require('../controllers/adminController');
 const {
   getAllTestimonials,
@@ -39,6 +44,12 @@ const { admin } = require('../middleware/adminMiddleware');
 
 router.route('/dashboard').get(protect, admin, getAdminDashboard);
 router.route('/analytics').get(protect, admin, getAnalytics);
+router.route('/activity-logs').get(protect, admin, getActivityLogs);
+router.route('/analytics/activity-summary').get(protect, admin, getActivityAnalytics);
+router.route('/settings/rate-limits')
+  .get(protect, admin, getRateLimitSettings)
+  .put(protect, admin, updateRateLimitSettings);
+router.route('/settings/rate-limits/reset').post(protect, admin, resetRateLimitSettings);
 router.route('/users').get(protect, admin, getUsers);
 router.route('/users/:id').delete(protect, admin, deleteUser);
 router.route('/jobs').get(protect, admin, getJobs);

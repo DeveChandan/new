@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import moment from 'moment';
 import { useTranslations } from 'next-intl'
+import { downloadCSV } from "@/lib/utils"
 
 interface WorkLog {
   _id: string;
@@ -91,6 +92,33 @@ const AdminWorklogsPage = () => {
     setSearchTerm('');
     setSelectedDate('');
     setSelectedStatus('all');
+  };
+
+  const handleExportCSV = () => {
+    if (!workers || workers.length === 0) return;
+    const headers = ["Worker ID", "Worker Name", "Job ID", "Job Title", "Work Date", "Start Time", "End Time", "Status"];
+    const rows: any[][] = [];
+
+    workers.forEach(w => {
+      if (w.worklogsByDate) {
+        Object.entries(w.worklogsByDate).forEach(([date, logs]) => {
+          (logs || []).forEach(l => {
+            rows.push([
+              w.workerId,
+              w.workerName || "N/A",
+              l.job?._id || "N/A",
+              l.job?.title || "N/A",
+              date || l.workDate || "N/A",
+              l.startTime ? moment(l.startTime).format("hh:mm A") : "N/A",
+              l.endTime ? moment(l.endTime).format("hh:mm A") : "N/A",
+              l.status || "N/A"
+            ]);
+          });
+        });
+      }
+    });
+
+    downloadCSV(`worklogs_export_${moment().format("YYYYMMDD_HHmm")}`, headers, rows);
   };
 
   const getWorkLogStats = (worker: WorkerWithWorklogs) => {
@@ -163,9 +191,15 @@ const AdminWorklogsPage = () => {
             <Filter className="h-4 w-4 mr-1" />
             {tCommon('filters')}
           </Button>
-          <Button variant="outline" size="sm" className="rounded-full">
-            <Download className="h-4 w-4 mr-1" />
-            {tCommon('export')}
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full gap-1.5"
+            onClick={handleExportCSV}
+            disabled={workers.length === 0}
+          >
+            <Download className="h-4 w-4" />
+            {tCommon('export') || 'Export'}
           </Button>
         </div>
       </div>

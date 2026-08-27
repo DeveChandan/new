@@ -5,6 +5,7 @@ const Setting = require('../models/Setting');
 const notificationService = require('./notificationService');
 const pdfService = require('./pdfService');
 const emailService = require('./emailService');
+const { logActivity } = require('./activityService');
 
 // Hardcoded subscription plans (keep in sync with paymentController)
 const plans = {
@@ -252,6 +253,17 @@ const activateSubscription = async (employerId, plan) => {
         actionUrl: '/subscriptions'
     });
 
+    logActivity({
+        user: employerId,
+        userName: user.name,
+        userMobile: user.mobile,
+        role: 'employer',
+        action: upgradeCredit > 0 ? 'SUBSCRIPTION_UPGRADED' : 'SUBSCRIPTION_ACTIVATED',
+        category: 'payment',
+        description: `Employer ${user.name} activated ${planConfig.name} subscription`,
+        metadata: { plan, price: planConfig.price, upgradeCredit, duration: planConfig.duration }
+    });
+
     return subscription;
 };
 
@@ -385,6 +397,17 @@ const activateWorklogAddon = async (employerId) => {
         relatedId: subscription._id,
         relatedModel: 'Subscription',
         actionUrl: '/dashboard/employer'
+    });
+
+    logActivity({
+        user: employerId,
+        userName: user.name,
+        userMobile: user.mobile,
+        role: 'employer',
+        action: 'WORKLOG_ADDON_PURCHASED',
+        category: 'payment',
+        description: `Employer ${user.name} purchased Worklog Access add-on`,
+        metadata: { plan: 'worklog_access', price: addonConfig.price }
     });
 
     return subscription;

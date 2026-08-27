@@ -33,7 +33,9 @@ router.get('/invoices', protect, paymentController.getInvoices);
 // GET /api/payments/invoices/:id
 router.get('/invoices/:id', protect, paymentController.getInvoiceById);
 
-// GET /api/payments/invoices/:id/download
+// GET /api/payments/invoices/:id/view
+router.get('/invoices/:id/view', protect, paymentController.viewInvoicePdf);
+
 // GET /api/payments/invoices/:id/download
 router.get('/invoices/:id/download', protect, paymentController.downloadInvoicePdf);
 

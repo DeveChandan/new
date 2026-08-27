@@ -14,7 +14,7 @@ const paymentReconciliation = require('./cron/paymentReconciliation');
 const { errorHandler, notFound, handleUnhandledRejections, handleUncaughtExceptions } = require('./middleware/errorHandler');
 const { validateEnv } = require('./config/validateEnv');
 const { securityHeaders, corsOptions, sanitizeRequest, requestLogger } = require('./middleware/security');
-const { apiLimiter } = require('./middleware/rateLimiter');
+const { apiLimiter, loadRateLimitsFromDb } = require('./middleware/rateLimiter');
 const { performanceMonitoring, getMetrics } = require('./middleware/monitoring');
 const cookieParser = require('cookie-parser');
 
@@ -33,10 +33,13 @@ try {
 handleUnhandledRejections();
 handleUncaughtExceptions();
 
-// Connect to database
-connectDB();
+// Connect to database and load dynamic configurations
+connectDB().then(() => {
+  loadRateLimitsFromDb();
+});
 
 const app = express();
+app.set('trust proxy', 1); // Trust first reverse proxy (e.g. Nginx on Hostinger VPS)
 const server = http.createServer(app);
 initSocket(server);
 
@@ -81,7 +84,11 @@ app.use('/uploads', (req, res, next) => {
   next();
 });
 
-// Serve static files AFTER CORS headers are set
+// Guard sensitive uploads (invoices, identity documents) from unauthorized public access
+const { protect: authProtect } = require('./middleware/authMiddleware');
+app.use('/uploads/invoices', authProtect);
+
+// Serve static files AFTER CORS and guards are set
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Apply rate limiting to all API routes
@@ -106,6 +113,8 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const notificationCenterRoutes = require('./routes/notificationCenterRoutes');
 const translationRoutes = require('./routes/translationRoutes');
 const siteRoutes = require('./routes/siteRoutes');
+const appVersionRoutes = require('./routes/appVersionRoutes');
+const announcementRoutes = require('./routes/announcementRoutes');
 
 // API routes
 app.use('/api/users', userRoutes);
@@ -126,6 +135,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/notification-center', notificationCenterRoutes);
 app.use('/api/translate', translationRoutes);
 app.use('/api/site', siteRoutes);
+app.use('/api/app-version', appVersionRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // Favicon handler (prevent 404 errors)
 app.get('/favicon.ico', (req, res) => res.status(204).end());

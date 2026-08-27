@@ -6,6 +6,7 @@ import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 import { NotificationProvider } from "@/contexts/NotificationContext"
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext"
 import LoadingBar from "@/components/LoadingBar"
+import AnnouncementBanner from "@/components/AnnouncementBanner"
 import "../globals.css"
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
@@ -107,6 +108,7 @@ export default async function RootLayout({
       </head>
       <body className={`${notoSans.variable} ${notoSans.className} antialiased bg-background text-foreground`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem storageKey="shramik-theme">
+          <AnnouncementBanner />
           <NextIntlClientProvider messages={messages}>
             <NotificationProvider>
               <SubscriptionProvider>

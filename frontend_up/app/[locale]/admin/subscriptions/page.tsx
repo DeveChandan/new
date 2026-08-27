@@ -184,7 +184,7 @@ export default function AdminSubscriptionsPage() {
             ) : (
               subscriptions.map((sub) => (
                 <TableRow key={sub._id}>
-                  <TableCell className="font-medium">{sub.employer.companyName || sub.employer.name}</TableCell>
+                  <TableCell className="font-medium">{sub.employer?.companyName || sub.employer?.name || 'N/A'}</TableCell>
                   <TableCell>
                     <Badge variant={sub.plan === 'premium' ? 'default' : 'secondary'} className="capitalize">
                       {sub.plan}

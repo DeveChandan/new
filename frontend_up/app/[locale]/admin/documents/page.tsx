@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import moment from "moment"
 import { useTranslations } from 'next-intl'
+import { downloadCSV } from "@/lib/utils"
 
 export default function AdminDocumentsPage() {
   const t = useTranslations('Admin.documents')
@@ -130,6 +131,21 @@ export default function AdminDocumentsPage() {
     setCurrentPage(1)
   }
 
+  const handleExportCSV = () => {
+    if (!documents || documents.length === 0) return
+    const headers = ["Document ID", "Document Name", "Document Type", "User Name", "User Role", "Status", "Uploaded Date"]
+    const rows = documents.map(d => [
+      d._id,
+      d.documentName || d.name || "N/A",
+      d.type || d.documentType || "N/A",
+      d.user?.name || "N/A",
+      d.user?.role || "N/A",
+      d.status || "N/A",
+      d.createdAt ? moment(d.createdAt).format("YYYY-MM-DD HH:mm:ss") : "N/A"
+    ])
+    downloadCSV(`documents_export_${moment().format("YYYYMMDD_HHmm")}`, headers, rows)
+  }
+
   if (loading && isInitialLoad) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -158,9 +174,15 @@ export default function AdminDocumentsPage() {
             <Filter className="h-4 w-4 mr-1" />
             {tCommon('filters')}
           </Button>
-          <Button variant="outline" size="sm" className="rounded-full">
-            <Download className="h-4 w-4 mr-1" />
-            {tCommon('export')}
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full gap-1.5"
+            onClick={handleExportCSV}
+            disabled={documents.length === 0}
+          >
+            <Download className="h-4 w-4" />
+            {tCommon('export') || 'Export'}
           </Button>
         </div>
       </div>

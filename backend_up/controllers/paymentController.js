@@ -101,32 +101,75 @@ const getInvoiceById = async (req, res) => {
 };
 
 /**
- * Download invoice PDF
+ * View/Stream invoice PDF (inline)
  */
-const downloadInvoicePdf = async (req, res) => {
+const viewInvoicePdf = async (req, res) => {
   try {
     const { id } = req.params;
-    const employerId = req.user._id;
+    const isUserAdmin = req.user && req.user.role === 'admin';
+    const query = isUserAdmin ? { _id: id } : { _id: id, employer: req.user._id };
 
-    const invoice = await Invoice.findOne({ _id: id, employer: employerId });
+    const invoice = await Invoice.findOne(query);
 
     if (!invoice) {
-      return res.status(404).json({ message: 'Invoice not found' });
+      // If invoice exists but belongs to someone else, return 403
+      const existsOther = await Invoice.findById(id);
+      if (existsOther) {
+        return res.status(403).json({ success: false, code: 403, message: 'Access denied: You do not have permission to view this invoice' });
+      }
+      return res.status(404).json({ success: false, code: 404, message: 'Invoice not found (404)' });
     }
 
     if (!invoice.pdfUrl) {
-      return res.status(404).json({ message: 'PDF not available' });
+      return res.status(404).json({ success: false, code: 404, message: 'PDF document not generated or not available for this invoice' });
     }
 
     const pdfPath = path.join(__dirname, '../..', invoice.pdfUrl);
 
     if (!fs.existsSync(pdfPath)) {
-      return res.status(404).json({ message: 'PDF file not found' });
+      return res.status(404).json({ success: false, code: 404, message: 'Invoice PDF file not found on server (404)' });
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${invoice.invoiceNumber}.pdf"`);
+    return res.sendFile(path.resolve(pdfPath));
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Download invoice PDF (attachment)
+ */
+const downloadInvoicePdf = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const isUserAdmin = req.user && req.user.role === 'admin';
+    const query = isUserAdmin ? { _id: id } : { _id: id, employer: req.user._id };
+
+    const invoice = await Invoice.findOne(query);
+
+    if (!invoice) {
+      const existsOther = await Invoice.findById(id);
+      if (existsOther) {
+        return res.status(403).json({ success: false, code: 403, message: 'Access denied: You do not have permission to download this invoice' });
+      }
+      return res.status(404).json({ success: false, code: 404, message: 'Invoice not found (404)' });
+    }
+
+    if (!invoice.pdfUrl) {
+      return res.status(404).json({ success: false, code: 404, message: 'PDF document not generated or not available for this invoice' });
+    }
+
+    const pdfPath = path.join(__dirname, '../..', invoice.pdfUrl);
+
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(404).json({ success: false, code: 404, message: 'Invoice PDF file not found on server (404)' });
     }
 
     res.download(pdfPath, `${invoice.invoiceNumber}.pdf`);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -558,6 +601,7 @@ module.exports = {
   canPostJob,
   getInvoices,
   getInvoiceById,
+  viewInvoicePdf,
   downloadInvoicePdf,
   getAdminInvoices,
   updateInvoiceStatus,

@@ -31,7 +31,7 @@ export default function PublicNavbar({
 
   return (
     <>
-      <nav className="fixed top-0 left-0 w-full bg-background/80 backdrop-blur-xl border-b border-border z-50">
+      <nav className="sticky top-0 left-0 w-full bg-background/95 backdrop-blur-xl border-b border-border/80 shadow-xs z-40 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <Link href={logoHref} className="flex items-center gap-2 group">
             <img src="/logo.png" alt="Shramik Seva" className="w-10 h-10 object-contain drop-shadow-sm group-hover:scale-105 transition-transform" />
@@ -148,9 +148,6 @@ export default function PublicNavbar({
           </motion.div>
         </div>
       )}
-
-      {/* Spacer to prevent content from being covered by fixed navbar */}
-      <div className="h-[73px]" aria-hidden="true" />
     </>
   )
 }

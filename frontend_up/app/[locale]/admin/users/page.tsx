@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { Loader2, CheckCircle, XCircle, Trash2, Eye, ChevronLeft, ChevronRight, Search, Filter, Calendar, User, Download } from "lucide-react"
 import moment from "moment"
 import { useTranslations } from 'next-intl'
+import { downloadCSV } from "@/lib/utils"
 
 export default function AdminUsersPage() {
   const t = useTranslations('Admin.users')
@@ -128,6 +129,22 @@ export default function AdminUsersPage() {
     setCurrentPage(1)
   }
 
+  const handleExportCSV = () => {
+    if (!users || users.length === 0) return
+    const headers = ["User ID", "Name", "Role", "Mobile", "Email", "City", "Verification Status", "Registered Date"]
+    const rows = users.map(u => [
+      u._id,
+      u.name || "N/A",
+      u.role || "N/A",
+      u.mobile || "N/A",
+      u.email || "N/A",
+      u.location?.city || u.city || (typeof u.location === 'string' ? u.location : "N/A"),
+      u.isVerified ? "Verified" : "Pending",
+      u.createdAt ? moment(u.createdAt).format("YYYY-MM-DD HH:mm:ss") : "N/A"
+    ])
+    downloadCSV(`users_export_${moment().format("YYYYMMDD_HHmm")}`, headers, rows)
+  }
+
   if (authLoading || (loading && isInitialLoad)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -156,9 +173,15 @@ export default function AdminUsersPage() {
             <Filter className="h-4 w-4 mr-1" />
             {tCommon('buttons.filter')}
           </Button>
-          <Button variant="outline" size="sm" className="rounded-full">
-            <Download className="h-4 w-4 mr-1" />
-            {tCommon('buttons.upload')}
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full gap-1.5"
+            onClick={handleExportCSV}
+            disabled={users.length === 0}
+          >
+            <Download className="h-4 w-4" />
+            {tCommon('export')}
           </Button>
         </div>
       </div>

@@ -97,10 +97,16 @@ class NotificationService {
                 const message = {
                     to: user.pushToken,
                     sound: 'default',
-                    title: notification.title,
-                    body: notification.message,
-                    data: { actionUrl: notification.actionUrl, relatedId: notification.relatedId, type: notification.type },
+                    title: notification.title || 'Shramik Seva',
+                    body: notification.message || '',
+                    data: {
+                        actionUrl: notification.actionUrl,
+                        relatedId: notification.relatedId,
+                        type: notification.type
+                    },
                     priority: 'high',
+                    channelId: 'default',
+                    _displayInForeground: true,
                 };
 
                 // The Expo SDK automatically creates chunks that comply with their API limits
@@ -108,10 +114,10 @@ class NotificationService {
 
                 for (let chunk of chunks) {
                     try {
-                        await expo.sendPushNotificationsAsync(chunk);
-                        console.log(`📲 Push notification sent to user ${userId}`);
+                        const receipts = await expo.sendPushNotificationsAsync(chunk);
+                        console.log(`📲 Push notification sent to user ${userId}:`, receipts);
                     } catch (error) {
-                        console.error('Error sending chunk:', error);
+                        console.error('Error sending push chunk:', error);
                     }
                 }
             } else if (user && user.pushToken) {

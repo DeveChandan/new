@@ -1,151 +1,61 @@
 const cron = require('node-cron');
-const https = require('https');
-const PaytmChecksum = require('paytmchecksum');
 const Payment = require('../models/Payment');
 const { activateSubscription, activateWorklogAddon } = require('../services/subscriptionService');
 const { emitToUser } = require('../socket');
-
-const PAYTM_MID = (process.env.PAYTM_MID || '').trim();
-const PAYTM_MERCHANT_KEY = (process.env.PAYTM_MERCHANT_KEY || '').trim();
-const WEBSITE = (process.env.PAYTM_WEBSITE || 'WEBSTAGING').trim();
-
-// Helper function to extract exact raw body string from Paytm JSON response
-const extractRawBody = (jsonString) => {
-    const match = jsonString.match(/"body"\s*:\s*\{/);
-    if (!match) return null;
-
-    const startIdx = match.index + match[0].indexOf('{');
-    let braceCount = 1;
-    let inString = false;
-    let escaped = false;
-
-    for (let i = startIdx + 1; i < jsonString.length; i++) {
-        const char = jsonString[i];
-
-        if (escaped) {
-            escaped = false;
-            continue;
-        }
-
-        if (char === '\\') {
-            escaped = true;
-            continue;
-        }
-
-        if (char === '"') {
-            inString = !inString;
-            continue;
-        }
-
-        if (!inString) {
-            if (char === '{') {
-                braceCount++;
-            } else if (char === '}') {
-                braceCount--;
-                if (braceCount === 0) {
-                    return jsonString.substring(startIdx, i + 1);
-                }
-            }
-        }
-    }
-    return null;
-};
-
-// Helper function to query Paytm Status API
-const queryPaytmStatus = async (orderId) => {
-    if (!PAYTM_MID || PAYTM_MID === 'YOUR_MID_HERE') {
-        throw new Error('PAYTM_MID is not configured.');
-    }
-    if (!PAYTM_MERCHANT_KEY || PAYTM_MERCHANT_KEY === 'YOUR_KEY_HERE') {
-        throw new Error('PAYTM_MERCHANT_KEY is not configured.');
-    }
-
-    const paytmParams = {
-        body: {
-            mid: PAYTM_MID,
-            orderId: orderId.toString().trim()
-        }
-    };
-
-    const bodyString = JSON.stringify(paytmParams.body);
-    const checksum = await PaytmChecksum.generateSignature(bodyString, PAYTM_MERCHANT_KEY);
-    paytmParams.head = { signature: checksum };
-
-    const post_data = JSON.stringify(paytmParams);
-    const options = {
-        hostname: WEBSITE === 'WEBSTAGING' ? 'securestage.paytmpayments.com' : 'secure.paytmpayments.com',
-        port: 443,
-        path: `/v3/order/status?mid=${PAYTM_MID}`,
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(post_data),
-            'User-Agent': 'Node/22'
-        }
-    };
-
-    return new Promise((resolve, reject) => {
-        let response = "";
-        const post_req = https.request(options, (post_res) => {
-            post_res.on('data', (chunk) => { response += chunk; });
-            post_res.on('end', () => {
-                try {
-                    const resData = JSON.parse(response);
-                    
-                    // Security Signature Check
-                    if (!resData.head || !resData.head.signature) {
-                        return reject(new Error("Missing Paytm security signature in response head"));
-                    }
-
-                    // Capture the exact, un-parsed raw chunk string for body straight out of the HTTP stream
-                    const rawBodyString = extractRawBody(response);
-                    if (!rawBodyString) {
-                        return reject(new Error("Failed to extract raw body string from Paytm response"));
-                    }
-
-                    const isSignatureValid = PaytmChecksum.verifySignature(rawBodyString, PAYTM_MERCHANT_KEY, resData.head.signature);
-                    
-                    if (!isSignatureValid) {
-                        return reject(new Error("Paytm response signature verification failed. Possible payload tampering."));
-                    }
-
-                    resolve(resData);
-                } catch (parseError) {
-                    reject(new Error(`Failed to parse Paytm response: ${response}. Error: ${parseError.message}`));
-                }
-            });
-        });
-
-        post_req.on('error', (e) => {
-            reject(e);
-        });
-
-        post_req.write(post_data);
-        post_req.end();
-    });
-};
+const { queryPaytmStatus } = require('../utils/paytmUtils');
 
 // Main reconciliation process
 const reconcilePayments = async () => {
     console.log('🔄 Running payment status reconciliation cron job...');
-    
-    // Find payments created > 5 minutes ago that are still marked as pending
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    
-    try {
-        const pendingPayments = await Payment.find({
-            status: 'pending',
-            createdAt: { $lt: fiveMinutesAgo }
-        });
 
-        if (pendingPayments.length === 0) {
-            console.log('✅ No pending payments found for reconciliation.');
+    const now = Date.now();
+    const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
+    const oneHourAgo = new Date(now - 60 * 60 * 1000);
+
+    try {
+        // 1. Auto-fail abandoned pending payments older than 1 hour (eliminates infinite accumulation)
+        const expiredResult = await Payment.updateMany(
+            {
+                status: 'pending',
+                createdAt: { $lt: oneHourAgo }
+            },
+            {
+                $set: {
+                    status: 'failure',
+                    gatewayResponse: {
+                        errorReason: 'Payment session expired / abandoned by user'
+                    }
+                }
+            }
+        );
+
+        if (expiredResult.modifiedCount > 0) {
+            console.log(`🧹 Auto-expired ${expiredResult.modifiedCount} stale pending payment(s) older than 1 hour.`);
+        }
+
+        // 2. Check if Paytm is configured before making external API calls
+        const mid = (process.env.PAYTM_MID || '').trim();
+        const mkey = (process.env.PAYTM_MERCHANT_KEY || '').trim();
+        if (!mid || mid === 'YOUR_MID_HERE' || !mkey || mkey === 'YOUR_KEY_HERE') {
+            console.log('ℹ️ Paytm credentials not configured in .env, skipping active status query.');
             return;
         }
 
-        console.log(`🔍 Found ${pendingPayments.length} pending payments to reconcile.`);
+        // 3. Find pending payments strictly within the active 5-minute to 1-hour window
+        const pendingPayments = await Payment.find({
+            status: 'pending',
+            createdAt: { $gte: oneHourAgo, $lt: fiveMinutesAgo }
+        }).limit(25); // Limit batch size to prevent API hammering
 
-        const reconciliationPromises = pendingPayments.map(async (payment) => {
+        if (pendingPayments.length === 0) {
+            console.log('✅ No pending payments in active window (5m - 1h) for reconciliation.');
+            return;
+        }
+
+        console.log(`🔍 Found ${pendingPayments.length} pending payment(s) to reconcile.`);
+
+        // 4. Process payments sequentially to avoid concurrent API flooding
+        for (const payment of pendingPayments) {
             console.log(`📡 Checking order status for Order ID: ${payment.orderId}...`);
             try {
                 const resData = await queryPaytmStatus(payment.orderId);
@@ -153,7 +63,7 @@ const reconcilePayments = async () => {
 
                 if (!body || !body.resultInfo) {
                     console.warn(`⚠️ Invalid status query response structure for order ${payment.orderId}`);
-                    return;
+                    continue;
                 }
 
                 const resultStatus = body.resultInfo.resultStatus;
@@ -169,13 +79,13 @@ const reconcilePayments = async () => {
                             errorReason: 'Amount Validation Failed'
                         };
                         await payment.save();
-                        
-                        emitToUser(payment.user.toString(), 'payment:status', { 
-                            orderId: payment.orderId, 
-                            status: 'failed', 
-                            error: 'Amount validation failed' 
+
+                        emitToUser(payment.user.toString(), 'payment:status', {
+                            orderId: payment.orderId,
+                            status: 'failed',
+                            error: 'Amount validation failed'
                         });
-                        return;
+                        continue;
                     }
 
                     // Reconcile as SUCCESS
@@ -189,10 +99,10 @@ const reconcilePayments = async () => {
                     console.log(`✅ Order ${payment.orderId} successfully reconciled to success.`);
 
                     // Push live notification update via WebSockets
-                    emitToUser(payment.user.toString(), 'payment:status', { 
-                        orderId: payment.orderId, 
-                        status: 'success', 
-                        txnId: body.txnId 
+                    emitToUser(payment.user.toString(), 'payment:status', {
+                        orderId: payment.orderId,
+                        status: 'success',
+                        txnId: body.txnId
                     });
 
                     // Activate asynchronously in background
@@ -221,18 +131,17 @@ const reconcilePayments = async () => {
 
                     console.log(`❌ Order ${payment.orderId} successfully reconciled to failure.`);
 
-                    emitToUser(payment.user.toString(), 'payment:status', { 
-                        orderId: payment.orderId, 
-                        status: 'failed' 
+                    emitToUser(payment.user.toString(), 'payment:status', {
+                        orderId: payment.orderId,
+                        status: 'failed'
                     });
+                } else {
+                    console.log(`⏳ Order ${payment.orderId} is still pending at Paytm (within 1-hour window).`);
                 }
-                // If resultStatus is 'PENDING', let it be, we check it again in next cron execution
             } catch (queryErr) {
                 console.error(`❌ Error querying status for order ${payment.orderId}:`, queryErr.message);
             }
-        });
-
-        await Promise.allSettled(reconciliationPromises);
+        }
     } catch (dbErr) {
         console.error('❌ Database error in payment reconciliation job:', dbErr);
     }
