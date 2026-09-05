@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2, UploadCloud, FileText, X, CheckCircle, AlertCircle } from "lucide-react"
-import { apiClient, API_ROOT_URL } from "@/lib/api"
+import { apiClient, API_ROOT_URL, getDocumentUrl, openDocumentSafely } from "@/lib/api"
 import { useAuth } from "@/hooks/use-auth"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTranslations } from "next-intl"
@@ -18,12 +18,6 @@ interface Document {
   type: string
   status: "pending" | "approved" | "rejected"
   expiryDate?: string
-}
-
-const getDocumentUrl = (url: string) => {
-  if (!url) return "";
-  if (url.startsWith('http')) return url;
-  return `${API_ROOT_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
 export function DocumentUploadSection() {
@@ -224,10 +218,14 @@ export function DocumentUploadSection() {
                         <X className="w-4 h-4" /> {t('status.rejected')}
                       </span>
                     )}
-                    <Button variant="ghost" size="sm" asChild>
-                      <a href={getDocumentUrl(doc.url)} target="_blank" rel="noopener noreferrer" className="text-primary">
-                        {tCommon('buttons.view')}
-                      </a>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openDocumentSafely(doc.url, { title: doc.name })}
+                      disabled={!doc.url}
+                      className={!doc.url ? "opacity-50 cursor-not-allowed" : "text-primary"}
+                    >
+                      {tCommon('buttons.view')}
                     </Button>
                   </div>
                 </div>

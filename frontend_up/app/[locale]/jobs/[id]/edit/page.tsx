@@ -24,71 +24,8 @@ const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
 import { useAuth } from "@/hooks/use-auth"
 import { useTranslations } from 'next-intl'
 
-const workerTypeSkills: { [key: string]: string[] } = {
-  "Security guards": [
-    "Access Control", "Visitor Management", "Patrolling", "CCTV Monitoring", "Surveillance", "Incident Reporting", "Emergency Response", "Crowd Control", "Conflict Management", "Fire Safety Awareness", "Alarm Systems Handling", "Security Protocols", "Shift Management", "Team Supervision", "Risk Assessment", "Incident Investigation", "Report Writing", "Communication Skills", "Physical Fitness", "First Aid", "SOP Compliance"
-  ],
-  "Security Supervisor": [ // Keep this as it's a specific role, not a generic "guards"
-    "Access Control", "Visitor Management", "Patrolling", "CCTV Monitoring", "Surveillance", "Incident Reporting", "Emergency Response", "Crowd Control", "Conflict Management", "Fire Safety Awareness", "Alarm Systems Handling", "Security Protocols", "Shift Management", "Team Supervision", "Risk Assessment", "Incident Investigation", "Report Writing", "Communication Skills", "Physical Fitness", "First Aid", "SOP Compliance"
-  ],
-  "Housekeepers": [
-    "Cleaning & Sanitization", "Floor Cleaning", "Washroom Cleaning", "Waste Management", "Linen Handling", "Chemical Handling", "Housekeeping Equipment Operation", "Room Maintenance", "Deep Cleaning", "Hygiene Standards", "Inventory Management", "Time Management", "Attention to Detail"
-  ],
-  "Facility Manager": [
-    "Facility Operations", "Maintenance Planning", "Vendor Management", "Asset Management", "Preventive Maintenance", "HVAC Knowledge", "Electrical & Plumbing Basics", "Budgeting", "Safety Compliance", "AMC Management", "Team Coordination", "Space Management", "Soft Services Management", "Hard Services Management", "SLA Monitoring", "Documentation"
-  ],
-  "Electricians": [
-    "Wiring Installation", "Electrical Maintenance", "Panel Board Handling", "Circuit Breaker Installation", "Fault Detection", "Electrical Repair", "Power Tools Usage", "Load Calculation", "Earthing", "Lighting Systems", "Industrial Electrical Work", "Residential Electrical Work", "Safety Compliance", "Multimeter Usage"
-  ],
-  "Plumbers": [
-    "Pipe Fitting", "Leakage Detection", "Drainage Systems", "Water Supply Systems", "Sanitary Installation", "Tap & Valve Repair", "Bathroom Fittings", "Sewage Systems", "Plumbing Tools Usage", "Pressure Testing", "Maintenance & Repair", "Blueprint Reading"
-  ],
-  "Liftman": [
-    "Elevator Operation", "Passenger Assistance", "Safety Procedures", "Emergency Handling", "Lift Controls Knowledge", "Daily Lift Checks", "Communication Skills", "Crowd Handling", "Basic Troubleshooting", "SOP Compliance"
-  ],
-  "Fireman": [
-    "Fire Fighting", "Fire Extinguisher Handling", "Fire Alarm Systems", "Emergency Evacuation", "Rescue Operations", "Fire Safety Inspection", "Disaster Management", "First Aid, PPE Handling", "Risk Assessment", "Incident Reporting"
-  ],
-  "Gardener": [
-    "Plant Care", "Lawn Maintenance", "Pruning", "Landscaping", "Irrigation Systems", "Fertilization", "Pest Control", "Soil Preparation", "Gardening Tools Usage", "Nursery Management", "Seasonal Plantation", "Outdoor Maintenance"
-  ],
-  "Pantry Boy": [
-    "Pantry Management", "Tea & Coffee Preparation", "Food Hygiene", "Utensil Cleaning", "Stock Replenishment", "Office Service Etiquette", "Time Management", "Basic Cooking", "Waste Disposal", "Cleanliness Maintenance"
-  ],
-  "Nurse": [
-    "Patient Care", "Vital Signs Monitoring", "Medication Administration", "Wound Dressing", "Injection Handling", "IV Management", "Patient Hygiene Care", "Medical Documentation", "Emergency Care", "Infection Control", "Equipment Handling", "Compassionate Care"
-  ],
-  "Aya": [
-    "Patient Assistance", "Elderly Care", "Child Care", "Bedside Assistance", "Feeding Support", "Hygiene Maintenance", "Mobility Support", "Basic First Aid", "Emotional Support", "Cleanliness Maintenance"
-  ],
-  "Carpenters": [
-    "Wood Cutting", "Furniture Making", "Installation Work", "Repair & Maintenance", "Measurement & Marking", "Blueprint Reading", "Modular Furniture Assembly, Power Tools Usage", "Polishing & Finishing", "Safety Practices"
-  ],
-  "Welders": [
-    "Arc Welding", "Gas Welding", "MIG Welding", "TIG Welding", "Fabrication Work", "Metal Cutting", "Blueprint Reading", "Welding Equipment Handling", "Safety Procedures", "Structural Welding", "Repair Welding"
-  ],
-  "Electronic mechanic": [
-    "Electronic Repair", "Circuit Analysis", "PCB Repair", "Soldering", "Electronic Testing", "Troubleshooting", "Component Replacement", "Use of Testing Instruments", "Consumer Electronics Repair", "Industrial Electronics Basics"
-  ],
-  "Motor mechanic": [
-    "Engine Repair", "Vehicle Maintenance", "Brake Systems", "Clutch Repair", "Transmission Systems", "Electrical Diagnostics", "Oil Change", "Suspension Systems", "Vehicle Inspection", "Tool Handling", "Fault Diagnosis"
-  ],
-  "Swimming trainer": [
-    "Swimming Instruction", "Water Safety", "Lifesaving Techniques", "CPR", "Stroke Training", "Beginner Coaching", "Advanced Coaching", "Pool Safety Rules", "Fitness Training", "Child Training", "Adult Training"
-  ],
-  "WTP / STP operator": [
-    "Water Treatment Process", "Sewage Treatment Process", "Chemical Dosing", "Pump Operation", "Valve Operation", "Plant Monitoring", "Water Quality Testing", "Equipment Maintenance", "Safety Compliance", "Log Book Maintenance", "Process Optimization"
-  ],
-  "Accountant": [
-    "Bookkeeping", "Tally", "GST Filing", "Taxation", "Payroll Management", "Financial Reporting", "Balance Sheet Preparation", "Accounts Receivable", "Accounts Payable", "Audit Support", "Excel Skills", "Compliance Management"
-  ],
-  "Rajmistri (Masons)": [
-    "Bricklaying", "Plastering", "Concreting", "Tiling", "Stone Masonry", "Blueprint Reading", "Material Estimation", "Safety Practices", "Finishing Work", "Formwork"
-  ],
-  "Any skilled/unskilled workers": [
-    "General Maintenance", "Helper Work", "Machine Operation", "Manual Labor", "Cleaning Assistance", "Tool Handling", "Safety Awareness", "Basic Electrical Knowledge", "Basic Plumbing Knowledge", "Team Support", "Physical Work"
-  ]
-};
+import { workerTypeSkills } from "@/lib/worker-data";
+export { workerTypeSkills };
 
 
 
@@ -132,7 +69,8 @@ export default function EditJobPage() {
       try {
         setLoading(true)
         const jobData = (await apiClient.getJobById(id)) as any
-        if (user?._id !== jobData.employer?._id) {
+        const employerId = jobData.employer?._id || jobData.employer;
+        if (!user?._id || user._id !== employerId || user.role !== "employer") {
           // If user is not the owner of the job, redirect
           router.push("/jobs")
           return
@@ -311,8 +249,8 @@ export default function EditJobPage() {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={6}
-                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground cursor-not-allowed"
-                  disabled={true}
+                  className="w-full bg-input border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground"
+                  disabled={loading}
                 />
               </div>
 
@@ -401,8 +339,8 @@ export default function EditJobPage() {
                       placeholder={tCreate('salaryPlaceholder')}
                       value={formData.salary}
                       onChange={handleInputChange}
-                      className="h-11 bg-muted border-border text-foreground placeholder:text-muted-foreground mt-2 cursor-not-allowed pr-20"
-                      disabled={true}
+                      className="h-11 bg-input border-border text-foreground placeholder:text-muted-foreground mt-2 pr-20"
+                      disabled={loading}
                     />
                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-xs font-bold text-muted-foreground uppercase tracking-widest pt-2">
                       {formData.workType === 'permanent' ? '/ month' : '/ day'}
@@ -438,8 +376,8 @@ export default function EditJobPage() {
                     value={formData.totalOpenings}
                     onChange={handleInputChange}
                     min="1"
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground mt-2 cursor-not-allowed"
-                    disabled={true}
+                    className="bg-input border-border text-foreground placeholder:text-muted-foreground mt-2"
+                    disabled={loading}
                   />
                 </div>
                 {/* New: Min Experience */}
@@ -547,8 +485,8 @@ export default function EditJobPage() {
                   name="otpVerificationRequired"
                   checked={formData.otpVerificationRequired}
                   onChange={(e) => setFormData((prev) => ({ ...prev, otpVerificationRequired: e.target.checked }))}
-                  disabled={true}
-                  className="h-4 w-4 text-primary focus:ring-primary border-border rounded cursor-not-allowed"
+                  disabled={loading}
+                  className="h-4 w-4 text-primary focus:ring-primary border-border rounded cursor-pointer"
                 />
                 <Label htmlFor="otpVerificationRequired" className="text-foreground">
                   {tCreate('otpRequired')}
@@ -562,8 +500,8 @@ export default function EditJobPage() {
                   name="geoTaggingRequired"
                   checked={formData.geoTaggingRequired}
                   onChange={(e) => setFormData((prev) => ({ ...prev, geoTaggingRequired: e.target.checked }))}
-                  disabled={true}
-                  className="h-4 w-4 text-primary focus:ring-primary border-border rounded cursor-not-allowed"
+                  disabled={loading}
+                  className="h-4 w-4 text-primary focus:ring-primary border-border rounded cursor-pointer"
                 />
                 <Label htmlFor="geoTaggingRequired" className="text-foreground">
                   {tCreate('geoRequired')}

@@ -306,20 +306,38 @@ export default function JobDetailClient({ initialJob }: { initialJob: any }) {
           <div className="flex items-center gap-4">
             {/* Desktop Navigation */}
             <div className="hidden sm:flex items-center gap-4">
-              <Link href="/profile">
-                <Button variant="ghost" className="text-foreground hover:bg-muted rounded-full">
-                  {tCommon('labels.profile')}
-                </Button>
-              </Link>
-              <ThemeToggle />
-              <Button
-                onClick={handleLogout}
-                variant="outline"
-                className="flex items-center gap-2 bg-transparent text-foreground rounded-full"
-              >
-                <LogOut className="w-4 h-4" />
-                {tCommon('buttons.logout')}
-              </Button>
+              {user ? (
+                <>
+                  <Link href="/profile">
+                    <Button variant="ghost" className="text-foreground hover:bg-primary rounded-full">
+                      {tCommon('labels.profile')}
+                    </Button>
+                  </Link>
+                  <ThemeToggle />
+                  <Button
+                    onClick={handleLogout}
+                    variant="outline"
+                    className="flex items-center gap-2 bg-transparent text-foreground rounded-full"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    {tCommon('buttons.logout')}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <ThemeToggle />
+                  <Link href={`/auth/login?redirect=/jobs/${job._id}`}>
+                    <Button variant="ghost" className="text-foreground hover:bg-primary rounded-full">
+                      {tCommon('buttons.login')}
+                    </Button>
+                  </Link>
+                  <Link href="/auth/register">
+                    <Button className="rounded-full">
+                      {tCommon('buttons.register') || 'Register'}
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -362,12 +380,27 @@ export default function JobDetailClient({ initialJob }: { initialJob: any }) {
           <div className="space-y-6">
             <div className="space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Navigation</p>
-              <Link href="/profile" onClick={() => setIsMobileNavOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start text-foreground hover:bg-primary/10 rounded-xl py-6 h-auto">
-                  <Edit className="w-5 h-5 mr-3 text-primary" />
-                  {tCommon('labels.profile')}
-                </Button>
-              </Link>
+              {user ? (
+                <Link href="/profile" onClick={() => setIsMobileNavOpen(false)}>
+                  <Button variant="ghost" className="w-full justify-start text-foreground hover:bg-primary/10 rounded-xl py-6 h-auto">
+                    <Edit className="w-5 h-5 mr-3 text-primary" />
+                    {tCommon('labels.profile')}
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href={`/auth/login?redirect=/jobs/${job._id}`} onClick={() => setIsMobileNavOpen(false)}>
+                    <Button variant="ghost" className="w-full justify-start text-foreground hover:bg-primary/10 rounded-xl py-6 h-auto">
+                      {tCommon('buttons.login')}
+                    </Button>
+                  </Link>
+                  <Link href="/auth/register" onClick={() => setIsMobileNavOpen(false)}>
+                    <Button variant="ghost" className="w-full justify-start text-foreground hover:bg-primary/10 rounded-xl py-6 h-auto">
+                      {tCommon('buttons.register') || 'Register'}
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
             <div className="space-y-3 pt-4 border-t border-border">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Settings</p>
@@ -376,16 +409,18 @@ export default function JobDetailClient({ initialJob }: { initialJob: any }) {
                 <ThemeToggle />
               </div>
             </div>
-            <div className="space-y-3 pt-4 border-t border-border">
-              <Button
-                onClick={handleLogout}
-                variant="ghost"
-                className="w-full justify-start flex items-center gap-2 text-destructive hover:bg-destructive/10 rounded-xl py-6 h-auto"
-              >
-                <LogOut className="w-5 h-5 mr-3" />
-                {tCommon('buttons.logout')}
-              </Button>
-            </div>
+            {user && (
+              <div className="space-y-3 pt-4 border-t border-border">
+                <Button
+                  onClick={handleLogout}
+                  variant="ghost"
+                  className="w-full justify-start flex items-center gap-2 text-destructive hover:bg-destructive/10 rounded-xl py-6 h-auto"
+                >
+                  <LogOut className="w-5 h-5 mr-3" />
+                  {tCommon('buttons.logout')}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -605,7 +640,7 @@ export default function JobDetailClient({ initialJob }: { initialJob: any }) {
             )}
 
             {/* Dispute Section */}
-            {(user?.role === "employer" || (user?.role === "worker" && isApplied)) && (
+            {Boolean((user?.role === "employer" && (user._id === job.employer?._id || user._id === job.employer?.toString())) || (user?.role === "worker" && isApplied)) && (
               <Card className="p-6 bg-card/80 border-border/50 backdrop-blur-lg mt-6">
                 <h2 className="text-2xl font-semibold text-foreground mb-4">{t('reportDispute')}</h2>
                 {disputeError && (
@@ -716,6 +751,15 @@ export default function JobDetailClient({ initialJob }: { initialJob: any }) {
                     </div>
                   )}
 
+                  {!user && (
+                    <Button
+                      onClick={handleApplyJob}
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <span>{t('applyNow')}</span>
+                    </Button>
+                  )}
+
                   {user?.role === "worker" && (
                     isHired ? (
                       <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 text-center">
@@ -771,7 +815,7 @@ export default function JobDetailClient({ initialJob }: { initialJob: any }) {
                 </div>
               </Card>
 
-              {user?._id === job.employer?._id && (
+              {Boolean(user?._id && job.employer && user.role === "employer" && (user._id === job.employer?._id || user._id === job.employer?.toString())) && (
                 <Card className="p-4 bg-card/80 border-border/50 backdrop-blur-lg rounded-2xl space-y-2">
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Management</p>
                   <Link href={`/dashboard/employer/jobs/${job._id}/applicants`} className="block">

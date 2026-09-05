@@ -88,10 +88,16 @@ const sanitizeRequest = (req, res, next) => {
 };
 
 /**
- * Recursively sanitize object
+ * Recursively sanitize object — removes NoSQL operator keys ($, .) and strips $ from values
  */
 const sanitizeObject = (obj) => {
+    if (typeof obj !== 'object' || obj === null) return;
     Object.keys(obj).forEach(key => {
+        // Security: delete keys that are MongoDB operators (start with $ or contain .)
+        if (key.startsWith('$') || key.includes('.')) {
+            delete obj[key];
+            return;
+        }
         if (typeof obj[key] === 'string') {
             // Remove potential NoSQL injection operators
             obj[key] = obj[key].replace(/\$/g, '');

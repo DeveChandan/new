@@ -540,6 +540,18 @@ exports.renderPaytmForm = async (req, res) => {
             return res.status(400).send('<h1>Invalid Payment Parameters</h1>');
         }
 
+        // Security: HTML-encode all query parameters before interpolating into HTML
+        const escapeHtml = (str) => String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;')
+            .replace(/\//g, '&#x2F;');
+        const safeTxnToken = escapeHtml(txnToken);
+        const safeOrderId = escapeHtml(orderId);
+        const safeMid = escapeHtml(mid);
+
         // Use the same host logic as initiation
         const WEBSITE = (process.env.PAYTM_WEBSITE || 'WEBSTAGING').trim();
         const host = WEBSITE === 'WEBSTAGING' ? 'securestage.paytmpayments.com' : 'secure.paytmpayments.com';
@@ -568,10 +580,10 @@ exports.renderPaytmForm = async (req, res) => {
                         <h1>Processing Payment</h1>
                         <p>We are securely redirecting you to the payment gateway. <strong>Please do not refresh or close this page.</strong></p>
                         
-                        <form id="paytmForm" method="post" action="https://${host}/theia/api/v1/showPaymentPage?mid=${mid}&orderId=${orderId}" name="paytmForm">
-                            <input type="hidden" name="mid" value="${mid}">
-                            <input type="hidden" name="orderId" value="${orderId}">
-                            <input type="hidden" name="txnToken" value="${txnToken}">
+                        <form id="paytmForm" method="post" action="https://${host}/theia/api/v1/showPaymentPage?mid=${safeMid}&orderId=${safeOrderId}" name="paytmForm">
+                            <input type="hidden" name="mid" value="${safeMid}">
+                            <input type="hidden" name="orderId" value="${safeOrderId}">
+                            <input type="hidden" name="txnToken" value="${safeTxnToken}">
                             <noscript>
                                 <button type="submit" class="btn">Continue to Payment</button>
                             </noscript>

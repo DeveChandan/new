@@ -83,10 +83,27 @@ const initSocket = (httpServer) => {
       socket.broadcast.emit('user:online', { userId });
     }
 
-    // Join a conversation
-    socket.on('joinConversation', (conversationId) => {
-      socket.join(conversationId);
-      console.log(`💬 User joined conversation: ${conversationId}`);
+    // Join a conversation — verify user is a member first
+    socket.on('joinConversation', async (conversationId) => {
+      if (!userId) {
+        return socket.emit('error', { message: 'Authentication required to join conversation' });
+      }
+      try {
+        const Conversation = require('../models/Conversation');
+        const conversation = await Conversation.findById(conversationId).select('members');
+        if (!conversation) {
+          return socket.emit('error', { message: 'Conversation not found' });
+        }
+        const isMember = conversation.members.some((m) => m.toString() === userId);
+        if (!isMember) {
+          return socket.emit('error', { message: 'Not authorized to join this conversation' });
+        }
+        socket.join(conversationId);
+        console.log(`💬 User ${userId} joined conversation: ${conversationId}`);
+      } catch (err) {
+        console.error('joinConversation error:', err);
+        socket.emit('error', { message: 'Failed to join conversation' });
+      }
     });
 
     // Leave a conversation
@@ -95,10 +112,28 @@ const initSocket = (httpServer) => {
       console.log(`👋 User left conversation: ${conversationId}`);
     });
 
-    // Join a job room (for live tracking)
-    socket.on('joinJobRoom', (jobId) => {
-      socket.join(`job:${jobId}`);
-      console.log(`👷 User joined job room: job:${jobId}`);
+    // Join a job room — verify user is employer or assigned worker
+    socket.on('joinJobRoom', async (jobId) => {
+      if (!userId) {
+        return socket.emit('error', { message: 'Authentication required to join job room' });
+      }
+      try {
+        const Job = require('../models/Job');
+        const job = await Job.findById(jobId).select('employer workers');
+        if (!job) {
+          return socket.emit('error', { message: 'Job not found' });
+        }
+        const isEmployer = job.employer.toString() === userId;
+        const isWorker = job.workers && job.workers.some((w) => w.workerId && w.workerId.toString() === userId);
+        if (!isEmployer && !isWorker) {
+          return socket.emit('error', { message: 'Not authorized to join this job room' });
+        }
+        socket.join(`job:${jobId}`);
+        console.log(`👷 User ${userId} joined job room: job:${jobId}`);
+      } catch (err) {
+        console.error('joinJobRoom error:', err);
+        socket.emit('error', { message: 'Failed to join job room' });
+      }
     });
 
     // Leave a job room
@@ -117,10 +152,13 @@ const initSocket = (httpServer) => {
       io.to(receiverId).emit('receiveNotification', { type, message });
     });
 
-    // Join a user-specific room (legacy support)
+    // Join a user-specific room — only allow joining own personal room
     socket.on('joinUserRoom', (userRoomId) => {
-      socket.join(userRoomId);
-      console.log(`🔐 User ${userRoomId} joined their personal room (Socket ID: ${socket.id})`);
+      if (!userId || userRoomId !== userId) {
+        return socket.emit('error', { message: 'Not authorized to join this room' });
+      }
+      // User is already auto-joined to user:${userId} on connection; this is a no-op for safety
+      console.log(`🔐 User ${userId} confirmed in their personal room`);
     });
 
     // Typing indicators
@@ -189,7 +227,7 @@ const initSocket = (httpServer) => {
 
           // Also emit to conversation room (everyone in chat)
           io.to(conversationId.toString()).emit('message:read', messageBody);
-          
+
           // Legacy support
           io.to(conversationId.toString()).emit('messageRead', { messageId: messageId.toString() });
         } catch (error) {
@@ -209,26 +247,26 @@ const initSocket = (httpServer) => {
         );
 
         if (message) {
-            const senderId = message.sender.toString();
-            const msgId = message._id.toString();
-            const convId = conversationId.toString();
-            const clientMsgId = message.clientMessageId;
+          const senderId = message.sender.toString();
+          const msgId = message._id.toString();
+          const convId = conversationId.toString();
+          const clientMsgId = message.clientMessageId;
 
-            const messageBody = { messageId: msgId, conversationId: convId, clientMessageId: clientMsgId };
+          const messageBody = { messageId: msgId, conversationId: convId, clientMessageId: clientMsgId };
 
-            const personalRoom = `user:${senderId}`;
-            const isOnline = onlineUsers.has(senderId);
+          const personalRoom = `user:${senderId}`;
+          const isOnline = onlineUsers.has(senderId);
 
-            // Emit to conversation room
-            io.to(convId).emit('message:delivered', messageBody);
-            
-            // Legacy support
-            io.to(convId).emit('messageDelivered', { messageId: msgId });
-            
-            // Emit to sender's personal room
-            io.to(personalRoom).emit('message:delivered', messageBody);
-            io.to(personalRoom).emit('messageDelivered', { messageId: msgId });
-            console.log(`✅ Status DELIVERED broadcast to ${personalRoom} (Online: ${isOnline}) for msg: ${msgId}`);
+          // Emit to conversation room
+          io.to(convId).emit('message:delivered', messageBody);
+
+          // Legacy support
+          io.to(convId).emit('messageDelivered', { messageId: msgId });
+
+          // Emit to sender's personal room
+          io.to(personalRoom).emit('message:delivered', messageBody);
+          io.to(personalRoom).emit('messageDelivered', { messageId: msgId });
+          console.log(`✅ Status DELIVERED broadcast to ${personalRoom} (Online: ${isOnline}) for msg: ${msgId}`);
         }
       } catch (error) {
         console.error('Error updating message delivered status via socket:', error);
@@ -237,26 +275,26 @@ const initSocket = (httpServer) => {
 
     // Legacy message status events
     socket.on('markMessageDelivered', async ({ conversationId, messageId }) => {
-        try {
-            const Message = require('../models/Message');
-            await Message.findOneAndUpdate(
-                { _id: messageId, status: 'sent' },
-                { status: 'delivered' }
-            );
-            socket.to(conversationId).emit('messageDelivered', { messageId });
-        } catch (error) {
-            console.error('Error in legacy delivered event:', error);
-        }
+      try {
+        const Message = require('../models/Message');
+        await Message.findOneAndUpdate(
+          { _id: messageId, status: 'sent' },
+          { status: 'delivered' }
+        );
+        socket.to(conversationId).emit('messageDelivered', { messageId });
+      } catch (error) {
+        console.error('Error in legacy delivered event:', error);
+      }
     });
 
     socket.on('markMessageRead', async ({ conversationId, messageId }) => {
-        try {
-            const Message = require('../models/Message');
-            await Message.findByIdAndUpdate(messageId, { status: 'read' });
-            socket.to(conversationId).emit('messageRead', { messageId });
-        } catch (error) {
-            console.error('Error in legacy read event:', error);
-        }
+      try {
+        const Message = require('../models/Message');
+        await Message.findByIdAndUpdate(messageId, { status: 'read' });
+        socket.to(conversationId).emit('messageRead', { messageId });
+      } catch (error) {
+        console.error('Error in legacy read event:', error);
+      }
     });
 
     // Notification read

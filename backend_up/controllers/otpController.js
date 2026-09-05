@@ -1,4 +1,5 @@
 const Otp = require('../models/Otp');
+const crypto = require('crypto');
 const { User } = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { sendOTP } = require('../utils/fast2smsService');
@@ -24,7 +25,7 @@ const setTokenCookie = (res, token) => {
 const requestOtp = async (req, res) => {
   console.log('API Hit: requestOtp', req.body);
   const { mobile } = req.body;
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = crypto.randomInt(100000, 1000000).toString();
 
   try {
     // For login, verify that the user exists before dispatching the OTP to save SMS costs

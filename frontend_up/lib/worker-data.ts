@@ -3,7 +3,7 @@ export const workerTypeSkills: { [key: string]: string[] } = {
     "Access Control", "Visitor Management", "Patrolling", "CCTV Monitoring", "Surveillance", "Incident Reporting", "Emergency Response", "Crowd Control", "Conflict Management", "Fire Safety Awareness", "Alarm Systems Handling", "Security Protocols", "Shift Management", "Team Supervision", "Risk Assessment", "Incident Investigation", "Report Writing", "Communication Skills", "Physical Fitness", "First Aid", "SOP Compliance"
   ],
   "Security Supervisor": [
-    "Access Control", "Visitor Management", "Patrolling", "CCTV Monitoring", "Surveillance", "Incident Reporting", "Emergency Response", "Crowd Control", "Conflict Management", "Fire Safety Awareness", "Alarm Systems Handling", "Security Protocols", "Shift Management", "Team Supervision", "Risk Assessment", "Incident Investigation", "Report Writing", "Communication Skills", "Physical Fitness", "First Aid", "SOP Compliance"
+    "Shift Management", "Roster Planning", "Team Supervision", "Guard Deployment Audits", "Client Escalation Handling", "Incident Investigation", "Report Writing", "Risk Assessment", "CCTV Audit", "Attendance & Muster Verification", "Emergency Protocol Drill", "Communication Skills", "SOP Compliance"
   ],
   "Housekeepers": [
     "Cleaning & Sanitization", "Floor Cleaning", "Washroom Cleaning", "Waste Management", "Linen Handling", "Chemical Handling", "Housekeeping Equipment Operation", "Room Maintenance", "Deep Cleaning", "Hygiene Standards", "Inventory Management", "Time Management", "Attention to Detail"
@@ -58,6 +58,18 @@ export const workerTypeSkills: { [key: string]: string[] } = {
   ],
   "Rajmistri (Masons)": [
     "Bricklaying", "Plastering", "Concreting", "Tiling", "Stone Masonry", "Blueprint Reading", "Material Estimation", "Safety Practices", "Finishing Work", "Formwork"
+  ],
+  "Gym Trainer": [
+    "Personal Training", "Fitness Assessment", "Strength Training", "Cardio Conditioning", "Weight Management", "Workout Planning", "Equipment Handling & Safety", "Exercise Technique Coaching", "Nutrition Guidance", "Injury Prevention", "Client Motivation", "CPR & First Aid"
+  ],
+  "Housekeeper Supervisor": [
+    "Team Supervision", "Roster & Shift Scheduling", "Deep Cleaning Inspection", "Hygiene & Sanitization Standards", "Housekeeping Inventory Management", "Chemical Safety Handling", "SOP Compliance", "Staff Training", "Waste Management", "Guest & Client Handling", "Equipment Maintenance Oversight", "Quality Auditing"
+  ],
+  "Ward Boy": [
+    "Patient Transportation", "Wheelchair & Stretcher Handling", "Bed Making & Linen Changing", "Patient Mobility Assistance", "Sample Collection & Delivery", "Ward Cleanliness & Hygiene", "Oxygen Cylinder Handling", "Medical Waste Disposal", "Equipment Shifting", "Infection Control Basics", "Compassionate Patient Care", "Emergency Assistance"
+  ],
+  "Ward Girl": [
+    "Patient Transportation", "Wheelchair & Stretcher Handling", "Bed Making & Linen Changing", "Patient Mobility Assistance", "Sample Collection & Delivery", "Ward Cleanliness & Hygiene", "Oxygen Cylinder Handling", "Medical Waste Disposal", "Equipment Shifting", "Infection Control Basics", "Compassionate Patient Care", "Emergency Assistance"
   ],
   "Any skilled/unskilled workers": [
     "General Maintenance", "Helper Work", "Machine Operation", "Manual Labor", "Cleaning Assistance", "Tool Handling", "Safety Awareness", "Basic Electrical Knowledge", "Basic Plumbing Knowledge", "Team Support", "Physical Work"

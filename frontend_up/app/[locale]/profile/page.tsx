@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { apiClient, API_ROOT_URL } from "@/lib/api"
+import { apiClient, API_ROOT_URL, getDocumentUrl, openDocumentSafely } from "@/lib/api"
 import { useAuth } from "@/hooks/use-auth"
 import { clearAuthToken } from "@/lib/auth"
 import {
@@ -899,11 +899,10 @@ export default function ProfilePage() {
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {formData.companyDetails?.documents?.gstCertificate && (
-                            <a
-                              href={formData.companyDetails.documents.gstCertificate.startsWith('http') ? formData.companyDetails.documents.gstCertificate : `${API_ROOT_URL}${formData.companyDetails.documents.gstCertificate}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-3 p-4 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 hover:bg-primary/10 dark:hover:bg-primary/20 transition-all group"
+                            <button
+                              type="button"
+                              onClick={() => openDocumentSafely(formData.companyDetails?.documents?.gstCertificate, { title: 'GST Certificate' })}
+                              className="flex items-center gap-3 p-4 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 hover:bg-primary/10 dark:hover:bg-primary/20 transition-all group text-left w-full cursor-pointer"
                             >
                               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                                 <FileText className="w-5 h-5 text-primary" />
@@ -913,14 +912,13 @@ export default function ProfilePage() {
                                 <p className="text-xs text-muted-foreground">Click to view</p>
                               </div>
                               <ExternalLink className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </a>
+                            </button>
                           )}
                           {formData.companyDetails?.documents?.panCard && (
-                            <a
-                              href={formData.companyDetails.documents.panCard.startsWith('http') ? formData.companyDetails.documents.panCard : `${API_ROOT_URL}${formData.companyDetails.documents.panCard}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-3 p-4 rounded-2xl bg-accent/5 dark:bg-accent/10 border border-accent/20 hover:bg-accent/10 dark:hover:bg-accent/20 transition-all group"
+                            <button
+                              type="button"
+                              onClick={() => openDocumentSafely(formData.companyDetails?.documents?.panCard, { title: 'PAN Card' })}
+                              className="flex items-center gap-3 p-4 rounded-2xl bg-accent/5 dark:bg-accent/10 border border-accent/20 hover:bg-accent/10 dark:hover:bg-accent/20 transition-all group text-left w-full cursor-pointer"
                             >
                               <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
                                 <FileText className="w-5 h-5 text-accent" />
@@ -930,7 +928,7 @@ export default function ProfilePage() {
                                 <p className="text-xs text-muted-foreground">Click to view</p>
                               </div>
                               <ExternalLink className="w-4 h-4 text-accent opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </a>
+                            </button>
                           )}
                         </div>
                       </div>

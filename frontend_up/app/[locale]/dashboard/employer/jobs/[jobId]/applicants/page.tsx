@@ -30,7 +30,12 @@ export default function JobApplicantsPage() {
   const fetchJobAndApplicants = async () => {
     try {
       setLoading(true)
-      const jobData = await apiClient.getJobById(jobId)
+      const jobData = (await apiClient.getJobById(jobId)) as any
+      const employerId = jobData?.employer?._id || jobData?.employer;
+      if (user?._id !== employerId) {
+        router.push("/dashboard/employer/jobs")
+        return
+      }
       setJob(jobData)
 
       // Fetch applications for this job

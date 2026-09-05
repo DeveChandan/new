@@ -69,8 +69,16 @@ const getInvoices = async (req, res) => {
   try {
     const employerId = req.user._id;
     const invoices = await Invoice.find({ employer: employerId })
-      .populate('subscription')
+      .populate('subscription', 'planType endDate startDate')
       .sort({ createdAt: -1 });
+
+    // Sync dueDate with subscription.endDate if mismatched
+    for (const inv of invoices) {
+      if (inv.subscription && inv.subscription.endDate && (!inv.dueDate || new Date(inv.dueDate).getTime() !== new Date(inv.subscription.endDate).getTime())) {
+        Invoice.updateOne({ _id: inv._id }, { $set: { dueDate: inv.subscription.endDate } }).exec().catch(() => {});
+        inv.dueDate = inv.subscription.endDate;
+      }
+    }
 
     res.status(200).json(invoices);
   } catch (error) {
@@ -120,18 +128,28 @@ const viewInvoicePdf = async (req, res) => {
       return res.status(404).json({ success: false, code: 404, message: 'Invoice not found (404)' });
     }
 
-    if (!invoice.pdfUrl) {
-      return res.status(404).json({ success: false, code: 404, message: 'PDF document not generated or not available for this invoice' });
+    let pdfPath = invoice.pdfUrl ? path.join(__dirname, '../..', invoice.pdfUrl) : null;
+
+    // If PDF file is missing on disk or pdfUrl was not set, generate it on demand
+    if (!pdfPath || !fs.existsSync(pdfPath)) {
+      try {
+        const employer = await User.findById(invoice.employer);
+        const pdfService = require('../services/pdfService');
+        const generatedUrl = await pdfService.generateInvoicePDF(invoice, employer || {});
+        invoice.pdfUrl = generatedUrl;
+        await invoice.save();
+        pdfPath = path.join(__dirname, '../..', generatedUrl);
+      } catch (genErr) {
+        console.error('[PaymentController] On-demand PDF generation error:', genErr);
+      }
     }
 
-    const pdfPath = path.join(__dirname, '../..', invoice.pdfUrl);
-
-    if (!fs.existsSync(pdfPath)) {
+    if (!pdfPath || !fs.existsSync(pdfPath)) {
       return res.status(404).json({ success: false, code: 404, message: 'Invoice PDF file not found on server (404)' });
     }
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${invoice.invoiceNumber}.pdf"`);
+    res.setHeader('Content-Disposition', `inline; filename="${invoice.invoiceNumber || 'invoice'}.pdf"`);
     return res.sendFile(path.resolve(pdfPath));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -157,17 +175,27 @@ const downloadInvoicePdf = async (req, res) => {
       return res.status(404).json({ success: false, code: 404, message: 'Invoice not found (404)' });
     }
 
-    if (!invoice.pdfUrl) {
-      return res.status(404).json({ success: false, code: 404, message: 'PDF document not generated or not available for this invoice' });
+    let pdfPath = invoice.pdfUrl ? path.join(__dirname, '../..', invoice.pdfUrl) : null;
+
+    // If PDF file is missing on disk or pdfUrl was not set, generate it on demand
+    if (!pdfPath || !fs.existsSync(pdfPath)) {
+      try {
+        const employer = await User.findById(invoice.employer);
+        const pdfService = require('../services/pdfService');
+        const generatedUrl = await pdfService.generateInvoicePDF(invoice, employer || {});
+        invoice.pdfUrl = generatedUrl;
+        await invoice.save();
+        pdfPath = path.join(__dirname, '../..', generatedUrl);
+      } catch (genErr) {
+        console.error('[PaymentController] On-demand PDF generation error:', genErr);
+      }
     }
 
-    const pdfPath = path.join(__dirname, '../..', invoice.pdfUrl);
-
-    if (!fs.existsSync(pdfPath)) {
+    if (!pdfPath || !fs.existsSync(pdfPath)) {
       return res.status(404).json({ success: false, code: 404, message: 'Invoice PDF file not found on server (404)' });
     }
 
-    res.download(pdfPath, `${invoice.invoiceNumber}.pdf`);
+    res.download(pdfPath, `${invoice.invoiceNumber || 'invoice'}.pdf`);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -285,8 +313,16 @@ const getAdminInvoices = async (req, res) => {
 
     const invoices = await Invoice.find(query)
       .populate('employer', 'name email companyName phone')
-      .populate('subscription', 'planType')
+      .populate('subscription', 'planType endDate startDate')
       .sort({ createdAt: -1 });
+
+    // Sync dueDate with subscription.endDate if mismatched
+    for (const inv of invoices) {
+      if (inv.subscription && inv.subscription.endDate && (!inv.dueDate || new Date(inv.dueDate).getTime() !== new Date(inv.subscription.endDate).getTime())) {
+        Invoice.updateOne({ _id: inv._id }, { $set: { dueDate: inv.subscription.endDate } }).exec().catch(() => {});
+        inv.dueDate = inv.subscription.endDate;
+      }
+    }
 
     res.status(200).json(invoices);
   } catch (error) {
@@ -408,8 +444,7 @@ const purchaseWorklogAddon = async (req, res) => {
     await subscription.save();
 
     // Create invoice record for this add-on purchase
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 7);
+    const dueDate = new Date(expiry);
 
     const invoice = await Invoice.create({
       employer: employerId,

@@ -3,7 +3,13 @@ const Message = require('../models/Message');
 const { getIo } = require('../socket');
 
 const newConversation = async (req, res) => {
-  const { senderId, receiverId } = req.body;
+  // Security: always use the authenticated user as the sender, ignore client-supplied senderId
+  const senderId = req.user._id.toString();
+  const { receiverId } = req.body;
+
+  if (!receiverId) {
+    return res.status(400).json({ message: 'receiverId is required' });
+  }
 
   try {
     const existingConversation = await Conversation.findOne({
@@ -35,6 +41,11 @@ const newConversation = async (req, res) => {
 };
 
 const getConversations = async (req, res) => {
+  // Security: enforce that the requesting user can only fetch their own conversations
+  if (req.user._id.toString() !== req.params.userId) {
+    return res.status(403).json({ message: 'Not authorized to view these conversations' });
+  }
+
   try {
     const conversations = await Conversation.find({
       members: { $in: [req.params.userId] },
@@ -71,6 +82,19 @@ const getConversationById = async (req, res) => {
   try {
     const conversation = await Conversation.findById(req.params.conversationId)
       .populate("members", "name profilePicture");
+
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    // Security: only members of the conversation can view it
+    const isMember = conversation.members.some(
+      (m) => m._id.toString() === req.user._id.toString()
+    );
+    if (!isMember) {
+      return res.status(403).json({ message: 'Not authorized to view this conversation' });
+    }
+
     res.status(200).json(conversation);
   } catch (err) {
     console.error("Error fetching conversation:", err);

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { USER_AVAILABILITY } = require('../constants/statusEnums');
+const { USER_AVAILABILITY, WORKER_TYPES } = require('../constants/statusEnums');
 
 // ==========================================
 // BASE USER SCHEMA (Common fields for all user types)
@@ -78,7 +78,17 @@ const userSchema = new mongoose.Schema({
   },
   pushToken: {
     type: String,
-    select: false // Do not return by default
+    select: false // Legacy single token field
+  },
+  pushTokens: {
+    type: [{
+      token: { type: String, required: true },
+      platform: { type: String, enum: ['android', 'ios', 'web'], default: 'android' },
+      deviceName: { type: String },
+      lastUsedAt: { type: Date, default: Date.now }
+    }],
+    select: false, // Do not expose token arrays in standard user queries
+    default: []
   },
   gender: {
     type: String,
@@ -145,13 +155,7 @@ const workerSchema = new mongoose.Schema({
     type: [{
       type: String,
       enum: {
-        values: [
-          'Security guards', 'Security Supervisor', 'Housekeepers', 'Facility Manager',
-          'Electricians', 'Plumbers', 'Liftman', 'Fireman', 'Gardener', 'Pantry Boy',
-          'Nurse', 'Aya', 'Carpenters', 'Welders', 'Electronic mechanic', 'Motor mechanic',
-          'Swimming trainer', 'WTP / STP operator', 'Accountant', 'Rajmistri (Masons)',
-          'Any skilled/unskilled workers'
-        ],
+        values: WORKER_TYPES,
         message: '{VALUE} is not a valid worker type'
       }
     }],

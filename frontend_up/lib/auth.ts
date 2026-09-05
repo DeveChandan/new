@@ -16,19 +16,32 @@ export interface AuthUser {
 }
 
 export function setAuthToken(token: string) {
-  // Legacy support for older code, but we no longer store tokens in localStorage
-  return;
+  if (typeof window !== "undefined") {
+    if (token && token !== "null" && token !== "undefined") {
+      localStorage.setItem("auth_token", token)
+    } else {
+      localStorage.removeItem("auth_token")
+    }
+  }
 }
 
 export function getAuthToken(): string | null {
   if (typeof window !== "undefined") {
-    return localStorage.getItem("auth_token")
+    const directToken = localStorage.getItem("auth_token")
+    if (directToken && directToken !== "null" && directToken !== "undefined") {
+      return directToken
+    }
+    const user = getUser()
+    if (user?.token && user.token !== "null" && user.token !== "undefined") {
+      return user.token
+    }
   }
   return null
 }
 
 export function clearAuthToken() {
   if (typeof window !== "undefined") {
+    localStorage.removeItem("auth_token")
     localStorage.removeItem("user")
   }
 }
@@ -36,13 +49,20 @@ export function clearAuthToken() {
 export function setUser(user: AuthUser) {
   if (typeof window !== "undefined") {
     localStorage.setItem("user", JSON.stringify(user))
+    if (user?.token && user.token !== "null" && user.token !== "undefined") {
+      localStorage.setItem("auth_token", user.token)
+    }
   }
 }
 
 export function getUser(): AuthUser | null {
   if (typeof window !== "undefined") {
-    const user = localStorage.getItem("user")
-    return user ? JSON.parse(user) : null
+    try {
+      const user = localStorage.getItem("user")
+      return user ? JSON.parse(user) : null
+    } catch {
+      return null
+    }
   }
   return null
 }
@@ -50,3 +70,4 @@ export function getUser(): AuthUser | null {
 export function isAuthenticated(): boolean {
   return !!getUser()
 }
+

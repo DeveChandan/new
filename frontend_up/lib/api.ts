@@ -1,3 +1,6 @@
+import { getAuthToken } from "./auth";
+import { toast } from "sonner";
+
 const getBaseUrl = () => {
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 };
@@ -10,8 +13,77 @@ export const API_ROOT_URL = API_BASE_URL.replace("/api", "");
 const IMAGE_KEYS = new Set([
   'profileImage', 'profilePicture', 'photo', 'avatar',
   'startPhoto', 'endPhoto', 'logo', 'image', 'images',
-  'pdfUrl', 'certificateUrl', 'resume', 'document', 'fileUrl'
+  'pdfUrl', 'certificateUrl', 'resume', 'document', 'fileUrl',
+  'url', 'documentUrl', 'docUrl', 'gstCertificate', 'panCard'
 ]);
+
+export function getDocumentUrl(url?: string): string {
+  if (!url || typeof url !== 'string') return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${API_ROOT_URL}${cleanPath}`;
+}
+
+/**
+ * Safely verifies if a document file exists before opening it in a new tab.
+ * If the file returns 404 or is unavailable, it completely stops navigation,
+ * never opens a new tab, and displays an in-app error toast notification.
+ */
+export async function openDocumentSafely(
+  rawUrl?: string,
+  options?: { title?: string; onNotFound?: () => void }
+): Promise<boolean> {
+  if (!rawUrl) {
+    toast.error('No document file attached to this record.');
+    return false;
+  }
+
+  const fullUrl = getDocumentUrl(rawUrl);
+
+  try {
+    const token = typeof window !== 'undefined' ? getAuthToken() : null;
+    const headers: Record<string, string> = {};
+    if (token && token !== 'null' && token !== 'undefined') {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Verify document on backend
+    const res = await fetch(fullUrl, {
+      method: 'GET',
+      headers,
+    });
+
+    if (res.status === 404) {
+      toast.error(
+        options?.title
+          ? `Document "${options.title}" not found on server (404).`
+          : 'Document file not found on server (404).'
+      );
+      if (options?.onNotFound) options.onNotFound();
+      return false;
+    }
+
+    if (!res.ok) {
+      toast.error(`Unable to open document (${res.status} ${res.statusText}).`);
+      return false;
+    }
+
+    // Document is verified and available! Open blob preview safely in new tab
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank', 'noopener,noreferrer');
+    return true;
+  } catch (err: any) {
+    console.error('Document verification error:', err);
+    toast.error(
+      options?.title
+        ? `Document "${options.title}" could not be opened (not found or network error).`
+        : 'Document file could not be opened (not found or network error).'
+    );
+    if (options?.onNotFound) options.onNotFound();
+    return false;
+  }
+}
 
 function resolveImageUrls(data: any, key?: string): any {
   if (typeof data === 'string' && data) {
@@ -492,12 +564,39 @@ export class APIClient {
     return this.request(`/payments/invoices/${id}`);
   }
 
+  async viewInvoice(id: string) {
+    const token = typeof window !== 'undefined' ? getAuthToken() : null;
+    const headers: Record<string, string> = {};
+    if (token && token !== 'null' && token !== 'undefined') {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${this.baseURL}/payments/invoices/${id}/view`, {
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`View failed: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Failed to load invoice: ${response.status} ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  }
+
   async downloadInvoice(id: string) {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    const token = typeof window !== 'undefined' ? getAuthToken() : null;
+    const headers: Record<string, string> = {};
+    if (token && token !== 'null' && token !== 'undefined') {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${this.baseURL}/payments/invoices/${id}/download`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -694,9 +793,9 @@ export class APIClient {
 
   async uploadFile(formData: FormData) {
     const url = `${this.baseURL}/upload`
-    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null
+    const token = typeof window !== "undefined" ? getAuthToken() : null
     const headers: HeadersInit = {}
-    if (token) {
+    if (token && token !== 'null' && token !== 'undefined') {
       headers.Authorization = `Bearer ${token}`
     }
 

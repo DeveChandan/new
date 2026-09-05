@@ -93,6 +93,7 @@ const formatPlanFeatures = (plan) => {
 
     let features = Array.isArray(plan.features) ? [...plan.features] : [];
     let hasValidity = false;
+    let hasJobs = false;
 
     features = features.map(feature => {
         if (typeof feature !== 'string') return feature;
@@ -106,6 +107,7 @@ const formatPlanFeatures = (plan) => {
 
         // Dynamically update "X Active Job Post" or "X Active Job Posts"
         if (/^\d+ Active Job Post(s)?$/i.test(trimmed)) {
+            hasJobs = true;
             return maxActiveJobs !== undefined ? `${maxActiveJobs} Active Job Post${maxActiveJobs > 1 ? 's' : ''}` : feature;
         }
 
@@ -124,6 +126,11 @@ const formatPlanFeatures = (plan) => {
 
         return feature;
     });
+
+    // If job posts feature string was missing and maxActiveJobs exists, prepend it
+    if (!hasJobs && maxActiveJobs !== undefined && !plan.isAddon) {
+        features.unshift(`${maxActiveJobs} Active Job Post${maxActiveJobs > 1 ? 's' : ''}`);
+    }
 
     // If validity feature string was missing and duration exists, append it
     if (!hasValidity && duration !== undefined && !plan.isAddon) {
@@ -271,8 +278,14 @@ const activateSubscription = async (employerId, plan) => {
  * Helper to auto-generate invoice
  */
 const autoGenerateInvoice = async (subscription, employer, planConfig, upgradeCredit = 0) => {
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 30);
+    // Due date matches the plan validity end date
+    const dueDate = subscription.endDate 
+        ? new Date(subscription.endDate) 
+        : (() => {
+            const d = new Date();
+            d.setDate(d.getDate() + (planConfig?.duration || 30));
+            return d;
+        })();
 
     const items = [{
         description: `${planConfig.name} Subscription`,

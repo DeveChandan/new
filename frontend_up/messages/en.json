@@ -47,7 +47,9 @@
             "upload": "Upload",
             "download": "Download",
             "reject": "Reject",
-            "hire": "Hire"
+            "hire": "Hire",
+            "refresh": "Refresh",
+            "dismiss": "Dismiss"
         },
         "navigation": {
             "home": "Home",
@@ -1493,6 +1495,10 @@
         "WTP / STP operator": "WTP / STP operator",
         "Accountant": "Accountant",
         "Rajmistri (Masons)": "Rajmistri (Masons)",
+        "Gym Trainer": "Gym Trainer",
+        "HouseKeeper Supervisor": "Housekeeper Supervisor",
+        "Ward Boy": "Ward Boy",
+        "Ward Girl": "Ward Girl",
         "Any skilled/unskilled workers": "Any skilled/unskilled workers"
     },
     "LocaleSwitcher": {
@@ -1595,6 +1601,91 @@
             "description": "You don't have any notifications yet",
             "unreadDescription": "You don't have any unread notifications"
         }
+    },
+    "Billing": {
+        "title": "Billing & Invoices",
+        "subtitle": "View and download your subscription invoices",
+        "backToDashboard": "Back to Dashboard",
+        "cardTitle": "Your Invoices",
+        "filterAll": "All",
+        "filterPending": "Pending",
+        "filterPaid": "Paid",
+        "filterOverdue": "Overdue",
+        "invoiceNumber": "Invoice #",
+        "plan": "Plan",
+        "date": "Date",
+        "dueDate": "Due Date",
+        "amount": "Amount",
+        "status": "Status",
+        "action": "Action",
+        "view": "View",
+        "download": "Download",
+        "downloading": "Downloading...",
+        "viewing": "Opening...",
+        "noInvoices": "No invoices found",
+        "noStatusInvoices": "No {status} invoices found",
+        "fetchError": "Failed to load invoices",
+        "downloadError": "Failed to download invoice. Please try the View button instead.",
+        "viewError": "Failed to view invoice."
+    },
+    "NotFound": {
+        "badge": "404 Error",
+        "title": "Page or Document Not Found",
+        "description": "Sorry, the page, document, or resource you are looking for does not exist, has been moved, or is temporarily unavailable.",
+        "backHome": "Back to Home",
+        "browseJobs": "Browse Jobs",
+        "goBack": "Go Back",
+        "helpCenter": "Need Help? Contact Support",
+        "popularLinks": "Helpful Shortcuts",
+        "dashboard": "Dashboard",
+        "searchJobs": "Search Jobs",
+        "postJob": "Post a Job",
+        "worker": {
+            "badge": "Worker Account",
+            "subtitle": "We couldn't find the job, document, or page you were looking for. Here are the quickest ways back to your work, jobs, and earnings.",
+            "dashboard": "Worker Dashboard",
+            "findJobs": "Find Jobs",
+            "workLogs": "My Work Logs",
+            "offers": "Hiring Offers",
+            "offersDesc": "Review direct hire requests and employer invitations",
+            "findJobsDesc": "Search verified jobs matching your trade & location",
+            "workLogsDesc": "Log daily work hours, submit entries & track earnings",
+            "profileDesc": "Update your trade skills, bio, rate & ID documents"
+        },
+        "employer": {
+            "badge": "Employer Account",
+            "subtitle": "The candidate profile, job posting, or page could not be found. Here are quick shortcuts to manage your listings and talent pipeline.",
+            "dashboard": "Employer Dashboard",
+            "postJob": "Post a Job",
+            "hireTalent": "Discover Workers",
+            "postJobDesc": "Create a new requirement to attract skilled workers",
+            "manageJobsDesc": "Track applicants, review candidates & edit job postings",
+            "hireTalentDesc": "Browse verified worker profiles and send direct offers",
+            "hiredJobsDesc": "Supervise active hires, verify work logs & process payments"
+        },
+        "admin": {
+            "badge": "Administrator",
+            "subtitle": "The requested route or administrative document could not be located. Access your control center and management tools below.",
+            "dashboard": "Admin Overview",
+            "manageUsers": "User Directory",
+            "jobModeration": "Job Moderation",
+            "usersDesc": "Search, verify and moderate worker and employer accounts",
+            "jobsDesc": "Review active postings, monitor compliance and flags",
+            "docsDesc": "Approve worker Aadhaar, trade licenses & certifications",
+            "supportDesc": "Resolve user support tickets and dispute claims"
+        },
+        "guest": {
+            "badge": "Guest Visitor",
+            "signIn": "Sign In",
+            "registerWorker": "Join as Worker",
+            "registerEmployer": "Hire Workers",
+            "searchJobsDesc": "Browse hundreds of verified trade & daily wage jobs",
+            "postJobDesc": "Post your requirements and hire skilled verified talent",
+            "workerSignupDesc": "Register in under 2 minutes and connect with employers",
+            "supportDesc": "Get quick assistance or reach out to our support team"
+        },
+        "searchPlaceholder": "Search jobs, skills, or platform topics...",
+        "popularSearches": "Popular Searches"
     },
     "Metadata": {
         "title": "Shramik Seva - Job Marketplace for Skilled Workers",

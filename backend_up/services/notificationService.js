@@ -80,52 +80,114 @@ class NotificationService {
     }
 
     /**
-     * Send push notification via Expo Push API
+     * Send push notification via Expo Push API to all registered user devices
      * @param {String} userId - User ID to send notification to
      * @param {Object} notification - Notification object
      */
     async sendPushNotification(userId, notification) {
         try {
-            const user = await User.findById(userId).select('+pushToken');
+            const user = await User.findById(userId).select('+pushTokens +pushToken');
 
-            if (!user?.pushToken) {
-                console.log(`[NotificationService] No push token for user ${userId} (Possibly web/emulator)`);
+            if (!user) {
+                return;
             }
 
-            // Validate that we have a valid Expo push token
-            if (user && user.pushToken && Expo.isExpoPushToken(user.pushToken)) {
-                const message = {
-                    to: user.pushToken,
-                    sound: 'default',
-                    title: notification.title || 'Shramik Seva',
-                    body: notification.message || '',
-                    data: {
-                        actionUrl: notification.actionUrl,
-                        relatedId: notification.relatedId,
-                        type: notification.type
-                    },
-                    priority: 'high',
-                    channelId: 'default',
-                    _displayInForeground: true,
-                };
+            // Gather all candidate tokens from both multi-device list and legacy field
+            const tokenSet = new Set();
+            if (Array.isArray(user.pushTokens)) {
+                user.pushTokens.forEach(d => {
+                    if (d && d.token) tokenSet.add(d.token);
+                });
+            }
+            if (user.pushToken) {
+                tokenSet.add(user.pushToken);
+            }
 
-                // The Expo SDK automatically creates chunks that comply with their API limits
-                let chunks = expo.chunkPushNotifications([message]);
+            const candidateTokens = Array.from(tokenSet);
+            if (candidateTokens.length === 0) {
+                console.log(`[NotificationService] No push tokens found for user ${userId}`);
+                return;
+            }
 
-                for (let chunk of chunks) {
-                    try {
-                        const receipts = await expo.sendPushNotificationsAsync(chunk);
-                        console.log(`📲 Push notification sent to user ${userId}:`, receipts);
-                    } catch (error) {
-                        console.error('Error sending push chunk:', error);
+            // Filter for valid Expo Push tokens
+            const validTokens = candidateTokens.filter(token => Expo.isExpoPushToken(token));
+            const invalidTokens = candidateTokens.filter(token => !Expo.isExpoPushToken(token));
+
+            if (invalidTokens.length > 0) {
+                console.warn(`⚠️ [NotificationService] Pruning ${invalidTokens.length} invalid push token(s) for user ${userId}`);
+                await User.updateOne(
+                    { _id: userId },
+                    { 
+                        $pull: { pushTokens: { token: { $in: invalidTokens } } },
+                        ...(invalidTokens.includes(user.pushToken) ? { $unset: { pushToken: 1 } } : {})
                     }
+                );
+            }
+
+            if (validTokens.length === 0) {
+                return;
+            }
+
+            // Determine specialized Android notification channel
+            const notifType = (notification.type || '').toLowerCase();
+            let channelId = 'general_channel';
+            if (notifType.includes('message') || notifType.includes('chat')) {
+                channelId = 'messages_channel';
+            } else if (notifType.includes('job') || notifType.includes('hire') || notifType.includes('work') || notifType.includes('applicant')) {
+                channelId = 'job_updates_channel';
+            }
+
+            // Build notification payloads for each active device
+            const messages = validTokens.map(token => ({
+                to: token,
+                sound: 'default',
+                title: notification.title || 'Shramik Seva',
+                body: notification.message || '',
+                data: {
+                    actionUrl: notification.actionUrl,
+                    relatedId: notification.relatedId,
+                    type: notification.type
+                },
+                priority: 'high',
+                channelId: channelId,
+                _displayInForeground: true,
+            }));
+
+            // Chunk messages to comply with Expo API limits
+            const chunks = expo.chunkPushNotifications(messages);
+            for (const chunk of chunks) {
+                try {
+                    const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+                    console.log(`📲 [NotificationService] Push notification sent to user ${userId} (${chunk.length} device(s)):`, ticketChunk);
+
+                    // Automatic dead token cleanup (when app is uninstalled)
+                    const deadTokens = [];
+                    ticketChunk.forEach((ticket, idx) => {
+                        if (ticket.status === 'error') {
+                            console.error(`❌ [NotificationService] Push ticket error for token ${chunk[idx].to}:`, ticket.message, ticket.details);
+                            if (ticket.details?.error === 'DeviceNotRegistered' || ticket.details?.error === 'InvalidCredentials') {
+                                deadTokens.push(chunk[idx].to);
+                            }
+                        }
+                    });
+
+                    if (deadTokens.length > 0) {
+                        console.log(`🧹 [NotificationService] Pruning ${deadTokens.length} uninstalled device token(s) for user ${userId}`);
+                        await User.updateOne(
+                            { _id: userId },
+                            { 
+                                $pull: { pushTokens: { token: { $in: deadTokens } } },
+                                ...(deadTokens.includes(user.pushToken) ? { $unset: { pushToken: 1 } } : {})
+                            }
+                        );
+                    }
+                } catch (error) {
+                    console.error('❌ [NotificationService] Error sending push notification chunk:', error);
                 }
-            } else if (user && user.pushToken) {
-                console.warn(`⚠️ Invalid Expo Push Token for user ${userId}: ${user.pushToken}`);
             }
         } catch (error) {
             // Log error but don't crash
-            console.error('Error sending push notification:', error.message);
+            console.error('❌ [NotificationService] Error in sendPushNotification:', error.message);
         }
     }
 

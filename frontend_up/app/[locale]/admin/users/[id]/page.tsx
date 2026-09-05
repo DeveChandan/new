@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "@/navigation";
 import { useParams } from "next/navigation";
-import { apiClient } from "@/lib/api"
+import { apiClient, getDocumentUrl, openDocumentSafely } from "@/lib/api"
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -346,9 +346,19 @@ export default function AdminUserDetailsPage() {
                       </div>
 
                       <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t">
-                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
-                          View Document
-                        </a>
+                        {doc.url ? (
+                          <button
+                            type="button"
+                            onClick={() => openDocumentSafely(doc.url, { title: doc.name })}
+                            className="text-sm font-medium text-primary hover:underline cursor-pointer bg-transparent border-0 p-0"
+                          >
+                            View Document
+                          </button>
+                        ) : (
+                          <span className="text-sm font-medium text-muted-foreground opacity-50 cursor-not-allowed">
+                            No file available
+                          </span>
+                        )}
 
                         {doc.status === "pending" && (
                           <div className="flex gap-1">

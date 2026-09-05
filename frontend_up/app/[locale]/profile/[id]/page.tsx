@@ -14,7 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { apiClient } from "@/lib/api"
+import { apiClient, getDocumentUrl, openDocumentSafely } from "@/lib/api"
 import { useAuth } from "@/hooks/use-auth"
 import { clearAuthToken } from "@/lib/auth"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -420,21 +420,27 @@ export default function PublicProfilePage() {
                           .filter((doc: any) => doc.type === "biodata" || doc.name.toLowerCase().includes('biodata') || doc.name.toLowerCase().includes('resume') || doc.name.toLowerCase().includes('cv'))
                           .map((doc: any) => (
                             <div key={doc._id} className="flex items-center gap-2 mb-2">
-                              <Link href={doc.url} target="_blank" rel="noopener noreferrer">
-                                <Button variant="outline" className="rounded-full">
-                                  {t('viewDoc', { name: doc.name }) || `View ${doc.name}`}
-                                </Button>
-                              </Link>
+                              <Button
+                                variant="outline"
+                                onClick={() => openDocumentSafely(doc.url, { title: doc.name })}
+                                disabled={!doc.url}
+                                className={`rounded-full ${!doc.url ? "opacity-50 cursor-not-allowed" : ""}`}
+                              >
+                                {t('viewDoc', { name: doc.name }) || `View ${doc.name}`}
+                              </Button>
                             </div>
                           ))
                       ) : (
                         profile.documents.map((doc: any) => (
                           <div key={doc._id} className="flex items-center gap-2 mb-2">
-                            <Link href={doc.url} target="_blank" rel="noopener noreferrer">
-                              <Button variant="outline" className="rounded-full">
-                                {t('viewDoc', { name: doc.name }) || `View ${doc.name}`}
-                              </Button>
-                            </Link>
+                            <Button
+                              variant="outline"
+                              onClick={() => openDocumentSafely(doc.url, { title: doc.name })}
+                              disabled={!doc.url}
+                              className={`rounded-full ${!doc.url ? "opacity-50 cursor-not-allowed" : ""}`}
+                            >
+                              {t('viewDoc', { name: doc.name }) || `View ${doc.name}`}
+                            </Button>
                           </div>
                         ))
                       )}

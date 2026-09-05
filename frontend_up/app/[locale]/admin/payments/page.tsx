@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { apiClient } from "@/lib/api"
+import { apiClient, API_ROOT_URL } from "@/lib/api"
 import { useAuth } from "@/hooks/use-auth"
 import { Loader2, FileText, Send, Search } from "lucide-react"
 import { useTranslations } from 'next-intl'
@@ -22,6 +22,8 @@ interface Invoice {
   }
   subscription: {
     planType: string
+    endDate?: string
+    startDate?: string
   }
   totalAmount: number
   dueDate: string
@@ -219,7 +221,7 @@ export default function AdminPaymentsPage() {
                         {invoice.subscription?.planType || tCommon('na')}
                       </TableCell>
                       <TableCell className="font-semibold">₹{invoice.totalAmount.toFixed(2)}</TableCell>
-                      <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(invoice.subscription?.endDate || invoice.dueDate).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <select
                           value={invoice.status}
@@ -241,7 +243,7 @@ export default function AdminPaymentsPage() {
                             onClick={() => {
                               const url = invoice.pdfUrl.startsWith('http')
                                 ? invoice.pdfUrl
-                                : `http://localhost:5000${invoice.pdfUrl}`;
+                                : `${API_ROOT_URL}${invoice.pdfUrl.startsWith('/') ? '' : '/'}${invoice.pdfUrl}`;
                               window.open(url, '_blank');
                             }}
                           >

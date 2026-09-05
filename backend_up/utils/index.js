@@ -50,7 +50,18 @@ function getLocale(req) {
   }
 }
 
+/**
+ * Escapes special characters for regular expressions to prevent ReDoS / regex injection.
+ * @param {string} text - User input string.
+ * @returns {string} - Escaped string safe for RegExp or $regex.
+ */
+function escapeRegex(text) {
+  if (typeof text !== 'string') return '';
+  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
 module.exports = {
   getDistance,
   getLocale,
+  escapeRegex,
 };

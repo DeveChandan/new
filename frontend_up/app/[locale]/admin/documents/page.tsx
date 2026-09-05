@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { apiClient } from "@/lib/api"
+import { apiClient, getDocumentUrl, openDocumentSafely } from "@/lib/api"
 import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "@/navigation";
 import {
@@ -391,12 +391,11 @@ export default function AdminDocumentsPage() {
                           variant="outline"
                           size="sm"
                           className="flex-1 h-8 rounded-full gap-1"
-                          asChild
+                          onClick={() => openDocumentSafely(doc.url, { title: doc.name })}
+                          disabled={!doc.url}
                         >
-                          <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                            <Eye className="h-3 w-3" />
-                            {t('view')}
-                          </a>
+                          <Eye className="h-3 w-3" />
+                          {t('view')}
                         </Button>
                       </div>
 
@@ -524,12 +523,12 @@ export default function AdminDocumentsPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                asChild
                                 className="h-8 w-8 p-0 rounded-full"
+                                onClick={() => openDocumentSafely(doc.url, { title: doc.name })}
+                                disabled={!doc.url}
+                                title={t('view') || 'View Document'}
                               >
-                                <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                                  <Eye className="h-3.5 w-3.5" />
-                                </a>
+                                <Eye className="h-3.5 w-3.5" />
                               </Button>
                               <Select
                                 onValueChange={(value: "approved" | "rejected" | "pending") =>

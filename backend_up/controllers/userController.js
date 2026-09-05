@@ -1,4 +1,5 @@
 const { User, Worker, Employer, Admin } = require('../models/User.js');
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const Job = require('../models/Job.js');
 const Otp = require('../models/Otp');
@@ -11,7 +12,7 @@ const jwt = require('jsonwebtoken');
 const recommendationService = require('../services/recommendationService');
 const { geocodeAddress } = require('../services/geolocationService');
 const { sendOTP } = require('../utils/fast2smsService');
-const { getLocale } = require('../utils');
+const { getLocale, escapeRegex } = require('../utils');
 const { translateUser, translateRating, translateJob } = require('../services/translationService');
 const { plans, getSubscriptionPlansFromDb } = require('../services/subscriptionService');
 const { logActivity } = require('../services/activityService');
@@ -52,13 +53,20 @@ const setTokenCookie = (res, token) => {
 
 const registerUser = async (req, res) => {
   const { name, email, password, role, mobile, profilePicture, skills, experience, availability, languages, documents, bankDetails, companyName, businessType, gstNumber } = req.body;
+
+  // Security: only allow worker/employer roles via public registration
+  const ALLOWED_ROLES = ['worker', 'employer'];
+  if (!role || !ALLOWED_ROLES.includes(role)) {
+    return res.status(400).json({ message: 'Invalid role. Must be worker or employer.' });
+  }
+
   const userExists = await User.findOne({ email });
   if (userExists) {
     return res.status(400).json({ message: 'User already exists' });
   }
 
   // Use role-specific discriminator model
-  const UserModel = role === 'worker' ? Worker : role === 'employer' ? Employer : Admin;
+  const UserModel = role === 'worker' ? Worker : Employer;
   const user = await UserModel.create({ name, email, password, mobile, profilePicture, skills, experience, availability, languages, documents, bankDetails, companyName, businessType, gstNumber });
 
   if (user) {
@@ -117,7 +125,7 @@ const initiateRegistration = async (req, res) => {
     if (mobileExists) {
       return res.status(400).json({ message: 'User with this mobile number already exists' });
     }
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     try {
       await Otp.create({ mobile, otp, registrationData: req.body });
 
@@ -159,7 +167,8 @@ const completeRegistration = async (req, res) => {
       experience, experienceMonths, hourlyRate, availability,
       languages, documents, bankDetails, companyName,
       businessType, gstNumber, workerType, isFresher, gender,
-      companyDetails, currentJobTitle, currentCompany, currentSalary
+      companyDetails, currentJobTitle, currentCompany, currentSalary,
+      locationName, location, city, state
     } = otpDoc.registrationData;
 
     let queryOptions = [{ mobile }];
@@ -172,8 +181,15 @@ const completeRegistration = async (req, res) => {
       return res.status(400).json({ message: 'User already exists with this email or mobile' });
     }
 
+    // Security: only allow worker/employer roles via public registration
+    const ALLOWED_ROLES = ['worker', 'employer'];
+    if (!role || !ALLOWED_ROLES.includes(role)) {
+      await Otp.deleteOne({ _id: otpDoc._id });
+      return res.status(400).json({ message: 'Invalid role. Must be worker or employer.' });
+    }
+
     // Use role-specific discriminator model
-    const UserModel = role === 'worker' ? Worker : role === 'employer' ? Employer : Admin;
+    const UserModel = role === 'worker' ? Worker : Employer;
 
     // Calculate total experience in years (e.g., 2.5 for 2 years 6 months)
     const totalExperience = isFresher ? 0 : (parseFloat(experience) || 0) + ((parseFloat(experienceMonths) || 0) / 12);
@@ -201,10 +217,33 @@ const completeRegistration = async (req, res) => {
       userData.currentCompany = currentCompany;
       userData.currentSalary = currentSalary;
       userData.gender = gender;
+
+      const locName = locationName || (city && state ? `${city}, ${state}` : city || state);
+      if (locName) {
+        userData.locationName = locName;
+      }
+      if (location && location.coordinates && location.coordinates.length === 2) {
+        userData.location = {
+          type: 'Point',
+          coordinates: location.coordinates
+        };
+      } else if (locName) {
+        try {
+          const geocoded = await geocodeAddress(locName);
+          if (geocoded) {
+            userData.location = geocoded;
+          }
+        } catch (err) {
+          console.error('Geocoding error during worker registration:', err);
+        }
+      }
     }
 
     if (role === 'employer') {
       userData.companyDetails = companyDetails;
+      if (locationName) {
+        userData.locationName = locationName;
+      }
     }
 
     const user = await UserModel.create(userData);
@@ -543,13 +582,13 @@ const searchWorkers = async (req, res) => {
   }
 
   if (keyword) {
-    query.name = { $regex: keyword, $options: 'i' };
+    query.name = { $regex: escapeRegex(keyword), $options: 'i' };
   }
   if (skills) {
     query.skills = { $in: skills.split(',') };
   }
   if (location) {
-    query.locationName = { $regex: location, $options: 'i' };
+    query.locationName = { $regex: escapeRegex(location), $options: 'i' };
   }
   if (availability) {
     query.availability = availability;
@@ -817,6 +856,12 @@ const getWorkerCompletedJobs = async (req, res) => {
 const updateCompanyProfile = async (req, res) => {
   try {
     const { userId } = req.params;
+
+    // Security: ensure the authenticated user can only update their own profile
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({ message: 'Not authorized to update this profile' });
+    }
+
     const { companyName, businessType, description, website, foundedYear, employeeCount, address, contactPerson, documents, isProfileComplete } = req.body;
     const user = await User.findById(userId);
     if (!user) {
@@ -955,26 +1000,64 @@ const unlockWorkerProfile = async (req, res) => {
 };
 
 const updatePushToken = async (req, res) => {
-  const { pushToken } = req.body;
+  const { pushToken, platform = 'android', deviceName } = req.body;
 
   if (!pushToken) {
     return res.status(400).json({ message: 'Push token is required' });
   }
 
   try {
-    // SECURITY FIX: Remove this push token from ANY other user record to ensure uniqueness.
-    const unsetResult = await User.updateMany(
+    // 1. Remove this specific token from other users (in case device was re-assigned/sold)
+    await Promise.all([
+      User.updateMany(
         { pushToken, _id: { $ne: req.user._id } },
         { $unset: { pushToken: 1 } }
-    );
-    if (unsetResult.modifiedCount > 0) {
-        console.log(`[UserController] Push token ${pushToken.substring(0, 10)}... was unset from ${unsetResult.modifiedCount} other users`);
+      ),
+      User.updateMany(
+        { 'pushTokens.token': pushToken, _id: { $ne: req.user._id } },
+        { $pull: { pushTokens: { token: pushToken } } }
+      )
+    ]);
+
+    // 2. Fetch current user with push tokens
+    const user = await User.findById(req.user._id).select('+pushTokens +pushToken');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    // Update the current user's token
-    await User.findByIdAndUpdate(req.user._id, { pushToken });
+    // Set legacy field
+    user.pushToken = pushToken;
+
+    // Ensure pushTokens array exists
+    if (!user.pushTokens) {
+      user.pushTokens = [];
+    }
+
+    // Check if token already exists in array
+    const existingIndex = user.pushTokens.findIndex(item => item.token === pushToken);
+    if (existingIndex > -1) {
+      user.pushTokens[existingIndex].lastUsedAt = new Date();
+      if (platform) user.pushTokens[existingIndex].platform = platform;
+      if (deviceName) user.pushTokens[existingIndex].deviceName = deviceName;
+    } else {
+      user.pushTokens.push({
+        token: pushToken,
+        platform: platform || 'android',
+        deviceName: deviceName || 'Mobile Device',
+        lastUsedAt: new Date()
+      });
+    }
+
+    // Limit stored devices to top 5 most recent
+    if (user.pushTokens.length > 5) {
+      user.pushTokens.sort((a, b) => new Date(b.lastUsedAt) - new Date(a.lastUsedAt));
+      user.pushTokens = user.pushTokens.slice(0, 5);
+    }
+
+    await user.save();
+    console.log(`✅ [UserController] Push token registered for user ${user._id} (${user.pushTokens.length} active devices)`);
     
-    res.json({ message: 'Push token updated successfully' });
+    res.json({ message: 'Push token updated successfully', devicesCount: user.pushTokens.length });
   } catch (error) {
     console.error('Error updating push token:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -986,6 +1069,11 @@ const changePassword = async (req, res) => {
 
   if (!newPassword) {
     return res.status(400).json({ message: 'New password is required' });
+  }
+
+  // Security: enforce minimum password length
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: 'Password must be at least 6 characters long' });
   }
 
   try {
@@ -1050,7 +1138,7 @@ const initiateChangeMobile = async (req, res) => {
     }
 
     // Generate secure 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
 
     // Delete any existing pending change_mobile OTPs for this user or number
     await Otp.deleteMany({

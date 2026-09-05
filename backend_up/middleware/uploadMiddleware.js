@@ -8,6 +8,10 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Allowed MIME types (images and PDF only)
+const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+
 // Set up storage for uploaded files
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -20,7 +24,23 @@ const storage = multer.diskStorage({
   },
 });
 
-// Create the multer instance
-const upload = multer({ storage });
+// MIME type filter — reject anything outside the allowlist
+const fileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ALLOWED_MIMES.includes(file.mimetype) && ALLOWED_EXTENSIONS.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only JPEG, PNG, WebP images and PDF files are allowed.'), false);
+  }
+};
+
+// Create the multer instance with file type and size restrictions
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB maximum
+  },
+});
 
 module.exports = upload;

@@ -3,7 +3,10 @@
  * Catches all errors and returns consistent error responses
  */
 const errorHandler = (err, req, res, next) => {
-    console.error('Error:', err);
+    const is404 = res.statusCode === 404 || err.statusCode === 404;
+    if (!is404) {
+        console.error('Error:', err);
+    }
 
     // Mongoose validation error
     if (err.name === 'ValidationError') {

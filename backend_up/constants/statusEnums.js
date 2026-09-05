@@ -15,6 +15,7 @@ const WORKER_TYPES = ['Security guards', 'Security Supervisor', 'Housekeepers', 
     'Electricians', 'Plumbers', 'Liftman', 'Fireman', 'Gardener', 'Pantry Boy',
     'Nurse', 'Aya', 'Carpenters', 'Welders', 'Electronic mechanic', 'Motor mechanic',
     'Swimming trainer', 'WTP / STP operator', 'Accountant', 'Rajmistri (Masons)',
+    'Gym Trainer', 'Housekeeper Supervisor', 'Ward Boy', 'Ward Girl',
     'Any skilled/unskilled workers'];
 const DOCUMENT_TYPES = ['biodata', 'bank_account', 'adhaar_card', 'voter_id', 'skill_certificate', 'experience_certificate', 'other', 'business_registration', 'gst_certificate', 'pan_card', 'company_registration'];
 const JOB_WORK_TYPES = ['permanent', 'temporary'];

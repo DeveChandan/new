@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "@/navigation";
-import { Eye, Trash2, Pencil, Settings, Loader2, Sparkles, Zap, Crown, ShieldCheck, Calendar, IndianRupee, Save, Lock } from "lucide-react"
+import { Eye, Trash2, Pencil, Settings, Loader2, Sparkles, Zap, Crown, ShieldCheck, Calendar, IndianRupee, Save, Lock, Briefcase } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from 'next-intl'
 import { cn } from "@/lib/utils"
@@ -50,6 +50,13 @@ const getPlanMeta = (planKey: string) => {
         iconBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
         badgeText: 'Popular / Enterprise',
         accentColor: 'border-l-4 border-l-amber-500',
+      }
+    case 'worklog_access':
+      return {
+        icon: Sparkles,
+        iconBg: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20',
+        badgeText: 'Add-on Feature',
+        accentColor: 'border-l-4 border-l-teal-500',
       }
     default:
       return {
@@ -123,7 +130,7 @@ export default function AdminSubscriptionsPage() {
     }
   }
 
-  const handleUpdatePlanField = (planKey: string, field: 'price' | 'duration', value: any) => {
+  const handleUpdatePlanField = (planKey: string, field: 'price' | 'duration' | 'maxActiveJobs', value: any) => {
     setPlansList(prev => prev.map(p => p.planKey === planKey ? { ...p, [field]: value } : p))
   }
 
@@ -133,11 +140,17 @@ export default function AdminSubscriptionsPage() {
       const plansObj: any = {}
       plansList.forEach(p => {
         const { planKey, ...rest } = p
-        // coerce price and duration to numbers when saving
+        const isAddon = Boolean(rest.isAddon || planKey === 'worklog_access')
+        // coerce price, duration, and maxActiveJobs to numbers when saving
         const normalized: any = { ...rest }
         if (typeof normalized.price === 'string') normalized.price = Number(normalized.price.replace(/[^0-9.-]+/g, '')) || 0
         else normalized.price = Number(normalized.price) || 0
         normalized.duration = Number(normalized.duration) || 0
+        if (!isAddon) {
+          normalized.maxActiveJobs = Math.max(1, Number(normalized.maxActiveJobs) || 1)
+        } else {
+          delete normalized.maxActiveJobs
+        }
         plansObj[planKey] = normalized
       })
       await apiClient.updateSubscriptionPlans(plansObj)
@@ -251,7 +264,7 @@ export default function AdminSubscriptionsPage() {
 
       {/* Plan Management Dialog */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] p-0 flex flex-col overflow-hidden border border-border/50 bg-card rounded-2xl shadow-2xl [&>button[data-slot=dialog-close]]:text-white/80 [&>button[data-slot=dialog-close]]:hover:text-white [&>button[data-slot=dialog-close]]:hover:bg-white/15 [&>button[data-slot=dialog-close]]:top-4 [&>button[data-slot=dialog-close]]:right-4 [&>button[data-slot=dialog-close]]:z-50 [&>button[data-slot=dialog-close]]:rounded-full [&>button[data-slot=dialog-close]]:p-1.5 transition-colors">
+        <DialogContent className="max-w-3xl max-h-[85vh] p-0 flex flex-col overflow-hidden border border-border/50 bg-card rounded-2xl shadow-2xl [&>button[data-slot=dialog-close]]:text-white/80 [&>button[data-slot=dialog-close]]:hover:text-white [&>button[data-slot=dialog-close]]:hover:bg-white/15 [&>button[data-slot=dialog-close]]:top-4 [&>button[data-slot=dialog-close]]:right-4 [&>button[data-slot=dialog-close]]:z-50 [&>button[data-slot=dialog-close]]:rounded-full [&>button[data-slot=dialog-close]]:p-1.5 transition-colors">
           <DialogHeader className="p-6 bg-gradient-to-r from-primary via-primary/95 to-primary/85 text-white flex-shrink-0 relative overflow-hidden shadow-sm">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-white/15 backdrop-blur-md text-white shadow-inner">
@@ -262,7 +275,7 @@ export default function AdminSubscriptionsPage() {
                   Manage Subscription Plans
                 </DialogTitle>
                 <DialogDescription className="text-sm text-white/85 mt-0.5">
-                  Update the prices and durations of the subscription plans shown to employers.
+                  Update the prices, durations, and active job post limits of the subscription plans shown to employers.
                 </DialogDescription>
               </div>
             </div>
@@ -279,6 +292,7 @@ export default function AdminSubscriptionsPage() {
                 const meta = getPlanMeta(plan.planKey)
                 const IconComponent = meta.icon
                 const isFree = plan.planKey === 'free'
+                const isAddon = Boolean(plan.isAddon || plan.planKey === 'worklog_access')
 
                 return (
                   <div
@@ -303,7 +317,7 @@ export default function AdminSubscriptionsPage() {
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className={cn("grid gap-3.5 pt-1", isAddon ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-3")}>
                       <div className="space-y-1.5">
                         <Label htmlFor={`price-${plan.planKey}`} className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                           <IndianRupee className="w-3.5 h-3.5 text-primary" /> Price (INR)
@@ -327,7 +341,7 @@ export default function AdminSubscriptionsPage() {
                         </div>
                         {isFree && (
                           <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1">
-                            <Lock className="w-3 h-3" /> Free plan price is permanently ₹0
+                            <Lock className="w-3 h-3" /> Free plan price is ₹0
                           </p>
                         )}
                       </div>
@@ -339,7 +353,8 @@ export default function AdminSubscriptionsPage() {
                         <div className="relative">
                           <Input
                             id={`duration-${plan.planKey}`}
-                            type="text"
+                            type="number"
+                            min="1"
                             value={plan.duration}
                             onChange={(e) => handleUpdatePlanField(plan.planKey, 'duration', e.target.value)}
                             className="pr-14 font-semibold text-sm rounded-xl border-border/80 focus-visible:ring-primary/20"
@@ -349,6 +364,27 @@ export default function AdminSubscriptionsPage() {
                           </span>
                         </div>
                       </div>
+
+                      {!isAddon && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`jobs-${plan.planKey}`} className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                            <Briefcase className="w-3.5 h-3.5 text-primary" /> Active Job Posts
+                          </Label>
+                          <div className="relative">
+                            <Input
+                              id={`jobs-${plan.planKey}`}
+                              type="number"
+                              min="1"
+                              value={plan.maxActiveJobs ?? 1}
+                              onChange={(e) => handleUpdatePlanField(plan.planKey, 'maxActiveJobs', e.target.value)}
+                              className="pr-14 font-semibold text-sm rounded-xl border-border/80 focus-visible:ring-primary/20"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground select-none">
+                              jobs
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )

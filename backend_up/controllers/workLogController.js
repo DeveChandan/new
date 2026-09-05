@@ -1,4 +1,5 @@
 const WorkLog = require('../models/WorkLog');
+const crypto = require('crypto');
 const Job = require('../models/Job');
 const { User } = require('../models/User');
 const { getIo } = require('../socket');
@@ -216,7 +217,7 @@ const generateStartOtp = async (req, res) => {
     }
 
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const expires = new Date();
     expires.setDate(expires.getDate() + 1);
 
@@ -228,20 +229,11 @@ const generateStartOtp = async (req, res) => {
     const io = getIo();
     // Safely handle employer ID whether populated or not
     const employerId = job.employer._id ? job.employer._id.toString() : job.employer.toString();
-    const eventData = { jobId, workerId, workLog };
-
-    console.log('🔔 Emitting workLogUpdated event:');
-    console.log('   📍 To employer room:', employerId);
-    console.log('   📦 Event data:', {
-      jobId,
-      workerId,
-      workLogId: workLog._id,
-      startOtp: workLog.startOtp,
-      endOtp: workLog.endOtp
-    });
-
-    io.to(`user:${employerId}`).emit('workLogUpdated', eventData);
-    io.to(`job:${jobId}`).emit('workLogUpdated', eventData);
+    // Security: send full workLog (with OTP) only to employer's private room
+    // Send sanitized workLog (without OTP fields) to the job room
+    const { startOtp: _s, endOtp: _e, startOtpExpires: _se, endOtpExpires: _ee, ...workLogSafe } = workLog.toObject ? workLog.toObject() : workLog;
+    io.to(`user:${employerId}`).emit('workLogUpdated', { jobId, workerId, workLog });
+    io.to(`job:${jobId}`).emit('workLogUpdated', { jobId, workerId, workLog: workLogSafe });
     console.log('   ✅ Event emitted successfully');
 
     // Create notification for employer about OTP generation
@@ -307,6 +299,7 @@ const verifyStartOtp = async (req, res) => {
     const io = getIo();
     // Safely handle employer ID whether populated or not
     const employerId = updatedWorkLog.employer._id ? updatedWorkLog.employer._id.toString() : updatedWorkLog.employer.toString();
+    // Security: OTP is already cleared after verification; safe to broadcast
     io.to(`user:${employerId}`).emit('workLogUpdated', { jobId, workerId, workLog: updatedWorkLog });
     io.to(`job:${jobId}`).emit('workLogUpdated', { jobId, workerId, workLog: updatedWorkLog });
 
@@ -361,7 +354,7 @@ const generateEndOtp = async (req, res) => {
       return res.status(400).json({ message: 'Start work photo not uploaded yet' });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const expires = new Date();
     expires.setMinutes(expires.getMinutes() + 15); // OTP expires in 15 minutes
 
@@ -373,20 +366,11 @@ const generateEndOtp = async (req, res) => {
     const io = getIo();
     // Safely handle employer ID whether populated or not
     const employerId = workLog.employer._id ? workLog.employer._id.toString() : workLog.employer.toString();
-    const eventData = { jobId, workerId, workLog };
-
-    console.log('🔔 Emitting workLogUpdated event (END OTP):');
-    console.log('   📍 To employer room:', employerId);
-    console.log('   📦 Event data:', {
-      jobId,
-      workerId,
-      workLogId: workLog._id,
-      startOtp: workLog.startOtp,
-      endOtp: workLog.endOtp
-    });
-
-    io.to(`user:${employerId}`).emit('workLogUpdated', eventData);
-    io.to(`job:${jobId}`).emit('workLogUpdated', eventData);
+    // Security: send full workLog (with OTP) only to employer's private room
+    // Send sanitized workLog (without OTP fields) to the job room
+    const { startOtp: _s2, endOtp: _e2, startOtpExpires: _se2, endOtpExpires: _ee2, ...workLogSafe2 } = workLog.toObject ? workLog.toObject() : workLog;
+    io.to(`user:${employerId}`).emit('workLogUpdated', { jobId, workerId, workLog });
+    io.to(`job:${jobId}`).emit('workLogUpdated', { jobId, workerId, workLog: workLogSafe2 });
     console.log('   ✅ Event emitted successfully');
 
     // Create notification for employer about end OTP generation
