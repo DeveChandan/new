@@ -19,8 +19,9 @@ const getFilteredWorkers = async (req, res) => {
 
         // Filter by location if provided (text search)
         if (location) {
-            // Check formattedAddress, city, or locationName
+            // Check city, formattedAddress, or locationName
             query.$or = [
+                { 'city': { $regex: new RegExp(location, 'i') } },
                 { 'location.city': { $regex: new RegExp(location, 'i') } },
                 { 'location.formattedAddress': { $regex: new RegExp(location, 'i') } },
                 { 'locationName': { $regex: new RegExp(location, 'i') } }
@@ -28,12 +29,24 @@ const getFilteredWorkers = async (req, res) => {
         }
 
         const workers = await User.find(query)
-            .select('name email mobile workerType location')
+            .select('name email mobile workerType location locationName city state expectedSalary')
             .limit(1000); // Safety limit
 
+        const formattedWorkers = workers.map(worker => {
+            const wObj = worker.toObject ? worker.toObject() : worker;
+            let resolvedCity = wObj.city || (wObj.location && wObj.location.city) || '';
+            if (!resolvedCity && wObj.locationName) {
+                resolvedCity = wObj.locationName.split(',')[0].trim();
+            }
+            return {
+                ...wObj,
+                city: resolvedCity || 'N/A'
+            };
+        });
+
         res.status(200).json({
-            count: workers.length,
-            workers
+            count: formattedWorkers.length,
+            workers: formattedWorkers
         });
     } catch (error) {
         console.error('Error filtering workers:', error);
@@ -81,12 +94,24 @@ const getFilteredEmployers = async (req, res) => {
         }
 
         const employers = await User.find(query)
-            .select('name email mobile companyName')
+            .select('name email mobile companyName companyDetails locationName location')
             .limit(1000);
 
+        const formattedEmployers = employers.map(emp => {
+            const eObj = emp.toObject ? emp.toObject() : emp;
+            let resolvedCity = eObj.companyDetails?.address?.city || (eObj.location && eObj.location.city) || '';
+            if (!resolvedCity && eObj.locationName) {
+                resolvedCity = eObj.locationName.split(',')[0].trim();
+            }
+            return {
+                ...eObj,
+                city: resolvedCity || 'N/A'
+            };
+        });
+
         res.status(200).json({
-            count: employers.length,
-            employers
+            count: formattedEmployers.length,
+            employers: formattedEmployers
         });
     } catch (error) {
         console.error('Error filtering employers:', error);
@@ -140,14 +165,18 @@ const replaceVariables = (template, user, extraData = {}) => {
 // Send bulk notifications
 const sendBulkNotification = async (req, res) => {
     try {
-        const { userIds, title, message, channels, actionUrl } = req.body;
+        const { userIds, title, message, channels, actionUrl, type } = req.body;
 
         // Validate
         if (!userIds || userIds.length === 0) {
             return res.status(400).json({ message: 'No recipients selected' });
         }
 
-        if (!channels || (!channels.inApp && !channels.whatsApp)) {
+        const hasInApp = !!channels?.inApp;
+        const hasPush = !!(channels?.push || channels?.pushNotification);
+        const hasWhatsApp = !!channels?.whatsApp;
+
+        if (!channels || (!hasInApp && !hasPush && !hasWhatsApp)) {
             return res.status(400).json({ message: 'At least one delivery channel must be selected' });
         }
 
@@ -155,8 +184,12 @@ const sendBulkNotification = async (req, res) => {
 
         let inAppSuccess = 0;
         let inAppFailed = 0;
+        let pushSuccess = 0;
+        let pushFailed = 0;
         let whatsAppSuccess = 0;
         let whatsAppFailed = 0;
+
+        const notifType = type || 'system';
 
         // Send notifications concurrently in batches of 25 to optimize throughput
         const batchSize = 25;
@@ -166,17 +199,20 @@ const sendBulkNotification = async (req, res) => {
                 const personalizedTitle = replaceVariables(title, user);
                 const personalizedMessage = replaceVariables(message, user);
 
-                // In-app notification (DB + Socket.IO + Expo Push)
-                if (channels.inApp) {
+                let createdNotif = null;
+
+                // 1. In-app notification (DB save + Socket.IO real-time emission)
+                if (hasInApp) {
                     try {
-                        await notificationService.createAndSend({
+                        createdNotif = await notificationService.createNotification({
                             userId: user._id,
                             userRole: user.role,
-                            type: 'system',
+                            type: notifType,
                             title: personalizedTitle,
                             message: personalizedMessage,
                             actionUrl: actionUrl || null
                         });
+                        notificationService.sendNotification(user._id, createdNotif);
                         inAppSuccess++;
                     } catch (error) {
                         console.error(`Failed to send in-app notification to ${user.email}:`, error.message);
@@ -184,14 +220,37 @@ const sendBulkNotification = async (req, res) => {
                     }
                 }
 
-                // WhatsApp message
-                if (channels.whatsApp && user.mobile) {
+                // 2. Mobile Push Notification (Expo Push API to all registered user devices)
+                // Always fires if explicitly selected OR when In-App notification is sent
+                if (hasPush || hasInApp) {
                     try {
-                        await whatsappService.sendMessage(
+                        const notifPayload = createdNotif || {
+                            type: notifType,
+                            title: personalizedTitle,
+                            message: personalizedMessage,
+                            actionUrl: actionUrl || null
+                        };
+                        await notificationService.sendPushNotification(user._id, notifPayload);
+                        pushSuccess++;
+                    } catch (error) {
+                        console.error(`Failed to send push notification to ${user.email}:`, error.message);
+                        pushFailed++;
+                    }
+                }
+
+                // 3. WhatsApp message
+                if (hasWhatsApp && user.mobile) {
+                    try {
+                        const waResult = await whatsappService.sendAdminAnnouncement(
                             user.mobile,
-                            `*${personalizedTitle}*\n\n${personalizedMessage}`
+                            personalizedTitle,
+                            personalizedMessage
                         );
-                        whatsAppSuccess++;
+                        if (waResult?.success) {
+                            whatsAppSuccess++;
+                        } else {
+                            whatsAppFailed++;
+                        }
                     } catch (error) {
                         console.error(`Failed to send WhatsApp to ${user.mobile}:`, error.message);
                         whatsAppFailed++;
@@ -208,12 +267,15 @@ const sendBulkNotification = async (req, res) => {
             role: 'admin',
             action: 'BULK_NOTIFICATION_SENT',
             category: 'system',
-            description: `Admin sent bulk notification to ${users.length} recipients`,
+            description: `Admin sent bulk notification to ${users.length} recipients across channels: ${[hasInApp && 'In-App', (hasPush || hasInApp) && 'Push', hasWhatsApp && 'WhatsApp'].filter(Boolean).join(', ')}`,
             metadata: {
                 totalRecipients: users.length,
                 channels,
+                type: notifType,
                 inAppSuccess,
                 inAppFailed,
+                pushSuccess,
+                pushFailed,
                 whatsAppSuccess,
                 whatsAppFailed
             },
@@ -225,6 +287,7 @@ const sendBulkNotification = async (req, res) => {
             results: {
                 totalRecipients: users.length,
                 inApp: { success: inAppSuccess, failed: inAppFailed },
+                push: { success: pushSuccess, failed: pushFailed },
                 whatsApp: { success: whatsAppSuccess, failed: whatsAppFailed }
             }
         });

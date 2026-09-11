@@ -193,7 +193,7 @@ interface FilterSidebarProps {
             <SelectContent>
               {Object.keys(workerTypeSkills).map((type) => (
                 <SelectItem key={type} value={type}>
-                  {tWT(type)}
+                  {tWT.has(type) ? tWT(type) : type}
                 </SelectItem>
               ))}
             </SelectContent>

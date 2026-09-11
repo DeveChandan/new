@@ -167,7 +167,7 @@ const completeRegistration = async (req, res) => {
       experience, experienceMonths, hourlyRate, availability,
       languages, documents, bankDetails, companyName,
       businessType, gstNumber, workerType, isFresher, gender,
-      companyDetails, currentJobTitle, currentCompany, currentSalary,
+      companyDetails, currentJobTitle, currentCompany, currentSalary, expectedSalary,
       locationName, location, city, state
     } = otpDoc.registrationData;
 
@@ -216,12 +216,34 @@ const completeRegistration = async (req, res) => {
       userData.currentJobTitle = currentJobTitle;
       userData.currentCompany = currentCompany;
       userData.currentSalary = currentSalary;
+      if (expectedSalary && typeof expectedSalary === 'object') {
+        userData.expectedSalary = {
+          min: Math.max(0, parseFloat(expectedSalary.min) || 0),
+          max: Math.max(0, parseFloat(expectedSalary.max) || 0),
+          currency: expectedSalary.currency || 'INR',
+          period: ['monthly', 'daily', 'hourly'].includes(expectedSalary.period) ? expectedSalary.period : 'monthly'
+        };
+      }
       userData.gender = gender;
 
+      let workerCity = city || '';
+      let workerState = state || '';
       const locName = locationName || (city && state ? `${city}, ${state}` : city || state);
       if (locName) {
         userData.locationName = locName;
+        if (!workerCity) {
+          const parts = locName.split(',').map(p => p.trim()).filter(Boolean);
+          if (parts.length >= 2) {
+            workerCity = parts[0];
+            if (!workerState) workerState = parts[1];
+          } else if (parts.length === 1) {
+            workerCity = parts[0];
+          }
+        }
       }
+      userData.city = workerCity;
+      userData.state = workerState;
+
       if (location && location.coordinates && location.coordinates.length === 2) {
         userData.location = {
           type: 'Point',
@@ -244,6 +266,8 @@ const completeRegistration = async (req, res) => {
       if (locationName) {
         userData.locationName = locationName;
       }
+      userData.city = city || companyDetails?.address?.city || '';
+      userData.state = state || companyDetails?.address?.state || '';
     }
 
     const user = await UserModel.create(userData);
@@ -332,7 +356,21 @@ const updateUserProfile = async (req, res) => {
     user.availability = req.body.availability !== undefined ? req.body.availability : user.availability;
     user.languages = req.body.languages !== undefined ? req.body.languages : user.languages;
     user.locationName = req.body.locationName !== undefined ? req.body.locationName : user.locationName;
-    if (req.body.locationName) {
+    if (req.body.city !== undefined) {
+      user.city = req.body.city;
+    } else if (req.body.locationName) {
+      const parts = req.body.locationName.split(',').map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 1 && !user.city) user.city = parts[0];
+    }
+    if (req.body.state !== undefined) {
+      user.state = req.body.state;
+    }
+    if (req.body.coordinates && req.body.coordinates.latitude && req.body.coordinates.longitude) {
+      user.location = {
+        type: 'Point',
+        coordinates: [Number(req.body.coordinates.longitude), Number(req.body.coordinates.latitude)]
+      };
+    } else if (req.body.locationName && (!user.location || !user.location.coordinates || user.location.coordinates.length !== 2)) {
       const location = await geocodeAddress(req.body.locationName);
       if (location) {
         user.location = location;
@@ -361,6 +399,14 @@ const updateUserProfile = async (req, res) => {
     user.isFresher = req.body.isFresher !== undefined ? req.body.isFresher : user.isFresher;
     user.gender = req.body.gender !== undefined ? req.body.gender : user.gender;
     user.bio = req.body.bio !== undefined ? req.body.bio : user.bio;
+    if (req.body.expectedSalary !== undefined && typeof req.body.expectedSalary === 'object' && req.body.expectedSalary !== null) {
+      user.expectedSalary = {
+        min: Math.max(0, parseFloat(req.body.expectedSalary.min) || 0),
+        max: Math.max(0, parseFloat(req.body.expectedSalary.max) || 0),
+        currency: req.body.expectedSalary.currency || 'INR',
+        period: ['monthly', 'daily', 'hourly'].includes(req.body.expectedSalary.period) ? req.body.expectedSalary.period : 'monthly'
+      };
+    }
 
     if (user.isFresher) {
       user.experience = 0;
@@ -431,17 +477,43 @@ const getWorkerDashboard = async (req, res) => {
             .limit(5);
         } catch (geoError) {
           // Fallback to non-geospatial query if index is missing
-          console.warn('Geospatial query failed, falling back to non-geospatial query:', geoError.message);
+          console.warn('Geospatial query failed, falling back to city/non-geospatial query:', geoError.message);
 
+          if (user.city) {
+            const cityEscaped = escapeRegex(user.city.trim());
+            recommendedJobs = await Job.find({
+              ...recommendedJobsQuery,
+              $or: [
+                { 'location.city': { $regex: cityEscaped, $options: 'i' } },
+                { 'location.address': { $regex: cityEscaped, $options: 'i' } }
+              ]
+            }).populate('employer', 'name companyName').limit(5);
+          }
+
+          if (recommendedJobs.length === 0) {
+            recommendedJobs = await Job.find(recommendedJobsQuery)
+              .populate('employer', 'name companyName')
+              .limit(5);
+          }
+        }
+      } else {
+        // No coordinates, match by worker city if available
+        if (user.city) {
+          const cityEscaped = escapeRegex(user.city.trim());
+          recommendedJobs = await Job.find({
+            ...recommendedJobsQuery,
+            $or: [
+              { 'location.city': { $regex: cityEscaped, $options: 'i' } },
+              { 'location.address': { $regex: cityEscaped, $options: 'i' } }
+            ]
+          }).populate('employer', 'name companyName').limit(5);
+        }
+
+        if (recommendedJobs.length === 0) {
           recommendedJobs = await Job.find(recommendedJobsQuery)
             .populate('employer', 'name companyName')
             .limit(5);
         }
-      } else {
-        // No location data, use regular query
-        recommendedJobs = await Job.find(recommendedJobsQuery)
-          .populate('employer', 'name companyName')
-          .limit(5);
       }
     }
 

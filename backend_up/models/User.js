@@ -105,6 +105,14 @@ const userSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'Rating cannot be negative'],
     max: [5, 'Rating cannot exceed 5']
+  },
+  city: {
+    type: String,
+    trim: true,
+  },
+  state: {
+    type: String,
+    trim: true,
   }
 }, baseOptions);
 
@@ -195,6 +203,30 @@ const workerSchema = new mongoose.Schema({
     type: Number,
     min: [0, 'Salary cannot be negative']
   },
+  expectedSalary: {
+    min: {
+      type: Number,
+      min: [0, 'Minimum expected salary cannot be negative'],
+      default: 0
+    },
+    max: {
+      type: Number,
+      min: [0, 'Maximum expected salary cannot be negative'],
+      default: 0
+    },
+    currency: {
+      type: String,
+      default: 'INR'
+    },
+    period: {
+      type: String,
+      enum: {
+        values: ['monthly', 'daily', 'hourly'],
+        message: '{VALUE} is not a valid salary period'
+      },
+      default: 'monthly'
+    }
+  },
   isFresher: {
     type: Boolean,
     default: false,
@@ -210,6 +242,14 @@ const workerSchema = new mongoose.Schema({
   locationName: {
     type: String,
     trim: true
+  },
+  city: {
+    type: String,
+    trim: true,
+  },
+  state: {
+    type: String,
+    trim: true,
   },
   location: {
     type: {
@@ -283,6 +323,7 @@ workerSchema.index({ location: '2dsphere' });
 workerSchema.index({ availability: 1 });
 workerSchema.index({ workerType: 1 });
 workerSchema.index({ skills: 1 });
+workerSchema.index({ city: 1, workerType: 1 });
 
 // Worker-specific pre-save hook
 workerSchema.pre('save', async function (next) {

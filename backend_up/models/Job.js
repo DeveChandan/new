@@ -38,6 +38,14 @@ const jobSchema = new mongoose.Schema(
       address: {
         type: String,
       },
+      city: {
+        type: String,
+        trim: true,
+      },
+      state: {
+        type: String,
+        trim: true,
+      },
     },
     workType: {
       type: String,
@@ -152,6 +160,7 @@ jobSchema.post('init', function (doc) {
 // Create indexes for efficient queries
 jobSchema.index({ employer: 1, status: 1 });
 jobSchema.index({ location: '2dsphere' });
+jobSchema.index({ 'location.city': 1, workerType: 1 });
 
 jobSchema.virtual('applications', {
   ref: 'Application',

@@ -29,7 +29,14 @@ import {
     Radio,
     Clock,
     Smartphone,
-    Globe
+    Globe,
+    Search,
+    MapPin,
+    Phone,
+    IndianRupee,
+    UserX,
+    CheckSquare,
+    Square
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
@@ -66,8 +73,17 @@ interface User {
     email: string
     mobile?: string
     workerType?: string[]
-    location?: { city?: string }
+    location?: { city?: string; formattedAddress?: string }
+    locationName?: string
+    city?: string
+    state?: string
     companyName?: string
+    expectedSalary?: {
+        min?: number
+        max?: number
+        currency?: string
+        period?: 'monthly' | 'daily' | 'hourly'
+    }
 }
 
 export default function NotificationCenterPage() {
@@ -97,10 +113,67 @@ export default function NotificationCenterPage() {
     // Recipients
     const [filteredUsers, setFilteredUsers] = useState<User[]>([])
     const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+    const [recipientSearch, setRecipientSearch] = useState('')
 
-    // Channels
+    const handleRemoveUser = (userId: string) => {
+        setFilteredUsers(prev => prev.filter(u => u._id !== userId))
+        setSelectedUsers(prev => prev.filter(id => id !== userId))
+        toast.info('User removed from recipient list')
+    }
+
+    const handleToggleSelectUser = (userId: string) => {
+        setSelectedUsers(prev =>
+            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+        )
+    }
+
+    const handleToggleSelectAll = () => {
+        if (selectedUsers.length === filteredUsers.length) {
+            setSelectedUsers([])
+        } else {
+            setSelectedUsers(filteredUsers.map(u => u._id))
+        }
+    }
+
+    const handleRemoveSelected = () => {
+        if (selectedUsers.length === 0) return
+        setFilteredUsers(prev => prev.filter(u => !selectedUsers.includes(u._id)))
+        setSelectedUsers([])
+        toast.info('Selected users removed from list')
+    }
+
+    const formatSalaryExpectation = (salary?: User['expectedSalary']) => {
+        if (!salary || (!salary.min && !salary.max)) {
+            return <span className="text-muted-foreground text-xs italic">Not specified</span>
+        }
+        const periodLabel = salary.period === 'daily' ? '/ day' : salary.period === 'hourly' ? '/ hr' : '/ mo'
+        const minStr = salary.min ? `₹${salary.min.toLocaleString('en-IN')}` : '0'
+        const maxStr = salary.max ? `₹${salary.max.toLocaleString('en-IN')}` : ''
+
+        if (salary.min && salary.max) {
+            return <span className="font-semibold text-emerald-600 dark:text-emerald-400">{`${minStr} – ${maxStr} ${periodLabel}`}</span>
+        } else if (salary.min) {
+            return <span className="font-semibold text-emerald-600 dark:text-emerald-400">{`From ${minStr} ${periodLabel}`}</span>
+        } else {
+            return <span className="font-semibold text-emerald-600 dark:text-emerald-400">{`Up to ${maxStr} ${periodLabel}`}</span>
+        }
+    }
+
+    const displayedRecipients = filteredUsers.filter(u => {
+        if (!recipientSearch.trim()) return true
+        const q = recipientSearch.toLowerCase()
+        const nameMatch = u.name?.toLowerCase().includes(q)
+        const mobileMatch = u.mobile?.toLowerCase().includes(q)
+        const cityMatch = (u.city || u.location?.city || u.locationName || '')?.toLowerCase().includes(q)
+        const companyMatch = u.companyName?.toLowerCase().includes(q)
+        return nameMatch || mobileMatch || cityMatch || companyMatch
+    })
+
+    // Channels & Type
     const [inApp, setInApp] = useState(true)
+    const [pushNotification, setPushNotification] = useState(true)
     const [whatsApp, setWhatsApp] = useState(false)
+    const [notificationType, setNotificationType] = useState('system')
 
     // Loading states
     const [loading, setLoading] = useState(false)
@@ -351,7 +424,7 @@ export default function NotificationCenterPage() {
                 return
             }
 
-            if (!inApp && !whatsApp) {
+            if (!inApp && !pushNotification && !whatsApp) {
                 toast.error('Select at least one delivery channel')
                 return
             }
@@ -362,16 +435,18 @@ export default function NotificationCenterPage() {
                 userIds: selectedUsers,
                 title,
                 message,
+                type: notificationType,
                 actionUrl: actionUrl || undefined,
-                channels: { inApp, whatsApp }
+                channels: { inApp, push: pushNotification, whatsApp }
             })
 
             const res = result as any
             toast.success(
                 <div>
                     <div className="font-bold">Notifications sent!</div>
-                    {inApp && <div className="text-sm">In-App: {res.results.inApp.success} sent, {res.results.inApp.failed} failed</div>}
-                    {whatsApp && <div className="text-sm">WhatsApp: {res.results.whatsApp.success} sent, {res.results.whatsApp.failed} failed</div>}
+                    {inApp && <div className="text-sm">In-App: {res.results?.inApp?.success ?? 0} sent, {res.results?.inApp?.failed ?? 0} failed</div>}
+                    {pushNotification && <div className="text-sm">Mobile Push: {res.results?.push?.success ?? 0} sent, {res.results?.push?.failed ?? 0} failed</div>}
+                    {whatsApp && <div className="text-sm">WhatsApp: {res.results?.whatsApp?.success ?? 0} sent, {res.results?.whatsApp?.failed ?? 0} failed</div>}
                 </div>,
                 { duration: 5000 }
             )
@@ -893,13 +968,193 @@ export default function NotificationCenterPage() {
             {/* Targeted Notification Composer (Only for worker / employer tabs) */}
             {activeTab !== ('announcements' as any) && (
               <>
-                {/* Recipients Count */}
+                {/* Recipients Preview & Management Section */}
                 {filteredUsers.length > 0 && (
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="text-sm text-muted-foreground">
-                                <Users className="w-4 h-4 inline mr-2" />
-                                {selectedUsers.length} of {filteredUsers.length} recipients selected
+                    <Card className="border-border shadow-sm">
+                        <CardHeader className="pb-3 border-b border-border/60">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                        <Users className="w-5 h-5 text-primary" />
+                                        Filtered Recipients ({selectedUsers.length} of {filteredUsers.length} selected)
+                                    </CardTitle>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Review the matched {activeTab} list below. You can remove individual users or toggle selection before dispatching.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleToggleSelectAll}
+                                        className="h-8 text-xs gap-1.5"
+                                    >
+                                        {selectedUsers.length === filteredUsers.length ? (
+                                            <>
+                                                <Square className="w-3.5 h-3.5" />
+                                                Deselect All
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckSquare className="w-3.5 h-3.5" />
+                                                Select All ({filteredUsers.length})
+                                            </>
+                                        )}
+                                    </Button>
+                                    {selectedUsers.length > 0 && selectedUsers.length < filteredUsers.length && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleRemoveSelected}
+                                            className="h-8 text-xs text-destructive hover:bg-destructive/10 gap-1"
+                                        >
+                                            <UserX className="w-3.5 h-3.5" />
+                                            Remove Unselected
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Search Filter Bar */}
+                            <div className="pt-2">
+                                <div className="relative">
+                                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
+                                    <Input
+                                        placeholder={`Search among ${filteredUsers.length} ${activeTab}s by name, contact no, city...`}
+                                        value={recipientSearch}
+                                        onChange={(e) => setRecipientSearch(e.target.value)}
+                                        className="pl-9 h-9 text-xs"
+                                    />
+                                    {recipientSearch && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setRecipientSearch('')}
+                                            className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="max-h-[380px] overflow-y-auto overflow-x-auto">
+                                <table className="w-full text-xs text-left">
+                                    <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase text-[10px] sticky top-0 z-10 backdrop-blur-sm">
+                                        <tr>
+                                            <th className="p-3 w-10 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedUsers.length > 0 && selectedUsers.length === filteredUsers.length}
+                                                    onChange={handleToggleSelectAll}
+                                                    className="w-3.5 h-3.5 rounded text-primary border-border cursor-pointer"
+                                                />
+                                            </th>
+                                            <th className="p-3 font-semibold">User Name</th>
+                                            <th className="p-3 font-semibold">Contact No</th>
+                                            <th className="p-3 font-semibold">City</th>
+                                            <th className="p-3 font-semibold">
+                                                {activeTab === 'worker' ? 'Salary Expectation' : 'Company / Category'}
+                                            </th>
+                                            <th className="p-3 font-semibold text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border/60">
+                                        {displayedRecipients.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                                                    No recipients match &quot;{recipientSearch}&quot;
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            displayedRecipients.map((u) => {
+                                                const isSelected = selectedUsers.includes(u._id)
+                                                const userCity = u.city || u.location?.city || u.locationName?.split(',')[0]?.trim() || 'N/A'
+                                                const contactNo = u.mobile || u.email || 'N/A'
+
+                                                return (
+                                                    <tr
+                                                        key={u._id}
+                                                        className={cn(
+                                                            "hover:bg-muted/30 transition-colors",
+                                                            !isSelected && "opacity-60 bg-muted/10"
+                                                        )}
+                                                    >
+                                                        <td className="p-3 text-center">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isSelected}
+                                                                onChange={() => handleToggleSelectUser(u._id)}
+                                                                className="w-3.5 h-3.5 rounded text-primary border-border cursor-pointer"
+                                                            />
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="font-semibold text-foreground flex items-center gap-1.5">
+                                                                {u.name}
+                                                                {activeTab === 'worker' && u.workerType && u.workerType.length > 0 && (
+                                                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                                                                        {u.workerType[0]}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            {u.email && u.email !== u.name && (
+                                                                <div className="text-[11px] text-muted-foreground truncate max-w-[200px]">
+                                                                    {u.email}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="flex items-center gap-1.5 font-mono text-[11px] text-foreground">
+                                                                <Phone className="w-3 h-3 text-muted-foreground" />
+                                                                {contactNo}
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                                                                <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
+                                                                <span className="font-medium text-foreground">{userCity}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            {activeTab === 'worker' ? (
+                                                                <div className="flex items-center gap-1 text-xs">
+                                                                    {formatSalaryExpectation(u.expectedSalary)}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-xs text-foreground font-medium">
+                                                                    {u.companyName || 'Employer Account'}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3 text-right">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleRemoveUser(u._id)}
+                                                                className="h-7 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive text-xs gap-1"
+                                                                title="Remove user from recipient list"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                <span className="hidden sm:inline">Remove</span>
+                                                            </Button>
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="p-3 bg-muted/20 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+                                <div>
+                                    Showing <span className="font-semibold text-foreground">{displayedRecipients.length}</span> of <span className="font-semibold text-foreground">{filteredUsers.length}</span> matched recipients
+                                </div>
+                                <div className="font-medium text-foreground flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    <span>{selectedUsers.length} selected for notification delivery</span>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -941,6 +1196,26 @@ export default function NotificationCenterPage() {
                         <CardTitle>Compose Notification</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        <div>
+                            <label className="text-sm font-medium">Notification Type</label>
+                            <select
+                                value={notificationType}
+                                onChange={(e) => setNotificationType(e.target.value)}
+                                className="w-full h-10 px-3 py-2 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                                <option value="system">📢 System Alert / Notice</option>
+                                <option value="job_approved">💼 Job Announcement</option>
+                                <option value="worker_hired">🤝 Hiring Alert</option>
+                                <option value="work_log_updated">⏱️ Work & Attendance Update</option>
+                                <option value="payment_received">💳 Payment & Subscription Alert</option>
+                                <option value="new_application">📄 Job Application Notice</option>
+                                <option value="new_message">💬 Direct Platform Message</option>
+                            </select>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Sets the notification classification, priority, and Android notification channel
+                            </p>
+                        </div>
+
                         <div>
                             <label className="text-sm font-medium">Title</label>
                             <Input
@@ -1006,24 +1281,42 @@ export default function NotificationCenterPage() {
                     <CardHeader>
                         <CardTitle>Delivery Channels</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-3">
                         <div className="flex items-center space-x-2">
                             <input
                                 type="checkbox"
+                                id="channelInApp"
                                 checked={inApp}
                                 onChange={(e) => setInApp(e.target.checked)}
-                                className="w-4 h-4"
+                                className="w-4 h-4 text-primary rounded"
                             />
-                            <label className="text-sm font-medium">In-App Notification</label>
+                            <label htmlFor="channelInApp" className="text-sm font-medium cursor-pointer">
+                                In-App Notification (Database & Notification Bell)
+                            </label>
                         </div>
                         <div className="flex items-center space-x-2">
                             <input
                                 type="checkbox"
+                                id="channelPush"
+                                checked={pushNotification}
+                                onChange={(e) => setPushNotification(e.target.checked)}
+                                className="w-4 h-4 text-primary rounded"
+                            />
+                            <label htmlFor="channelPush" className="text-sm font-medium cursor-pointer text-amber-600 dark:text-amber-400 font-semibold">
+                                Mobile Push Notification (Instant Status Bar, Sound & Heads-up Alert)
+                            </label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                id="channelWhatsApp"
                                 checked={whatsApp}
                                 onChange={(e) => setWhatsApp(e.target.checked)}
-                                className="w-4 h-4"
+                                className="w-4 h-4 text-primary rounded"
                             />
-                            <label className="text-sm font-medium">WhatsApp Message</label>
+                            <label htmlFor="channelWhatsApp" className="text-sm font-medium cursor-pointer">
+                                WhatsApp Message
+                            </label>
                         </div>
                     </CardContent>
                 </Card>

@@ -146,7 +146,8 @@ class NotificationService {
                 data: {
                     actionUrl: notification.actionUrl,
                     relatedId: notification.relatedId,
-                    type: notification.type
+                    type: notification.type,
+                    notificationId: notification._id ? notification._id.toString() : undefined,
                 },
                 priority: 'high',
                 channelId: channelId,

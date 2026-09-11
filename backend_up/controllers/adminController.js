@@ -15,6 +15,7 @@ const ActivityLog = require('../models/ActivityLog');
 const Setting = require('../models/Setting');
 const { updateActiveRateLimits, getActiveRateLimits, DEFAULT_RATE_LIMITS } = require('../middleware/rateLimiter');
 const { logActivity } = require('../services/activityService');
+const notificationService = require('../services/notificationService');
 const mongoose = require('mongoose');
 const dayjs = require('dayjs'); // Import dayjs
 
@@ -358,6 +359,26 @@ const approveJob = async (req, res) => {
     if (job) {
       job.isApproved = true;
       await job.save();
+
+      // Notify employer that job is approved
+      if (job.employer) {
+        try {
+          await notificationService.createAndSend({
+            userId: job.employer,
+            userRole: 'employer',
+            type: 'job_approved',
+            title: 'Job Approved! 🚀',
+            message: `Your job "${job.title}" has been approved by admin and is now live for workers.`,
+            relatedId: job._id,
+            relatedModel: 'Job',
+            actionUrl: `/jobs/${job._id}`,
+            metadata: { jobId: job._id }
+          });
+        } catch (jobNotifErr) {
+          console.error('[AdminController] Failed to notify job approval:', jobNotifErr.message);
+        }
+      }
+
       console.log('API Response: approveJob', { message: 'Job approved' });
       res.json({ message: 'Job approved' });
     } else {
@@ -384,6 +405,53 @@ const approveUser = async (req, res) => {
       }
 
       await user.save();
+
+      // Log activity
+      try {
+        logActivity({
+          user: req.user?._id,
+          userName: req.user?.name || 'Admin',
+          role: 'admin',
+          action: 'USER_APPROVED',
+          category: 'user',
+          description: `Admin approved and verified ${user.role} profile for ${user.name} (${user.mobile})`,
+          metadata: { userId: user._id, role: user.role },
+          req
+        });
+      } catch (logErr) {
+        console.error('[AdminController] Activity log error:', logErr.message);
+      }
+
+      // Dispatch Push Notification & Socket Alert to the User
+      try {
+        const isWorker = user.role === 'worker';
+        const roleLabel = isWorker ? 'Worker' : 'Employer';
+        const title = 'Account Verified! 🎉';
+        const message = isWorker
+          ? 'Congratulations! Your worker profile has been approved and verified by admin. You can now apply for jobs and connect with employers.'
+          : 'Congratulations! Your employer profile has been approved and verified by admin. You can now post jobs and hire verified workers.';
+        const actionUrl = isWorker ? '/(worker)/profile' : '/(employer)/profile';
+
+        await notificationService.createAndSend({
+          userId: user._id,
+          userRole: user.role,
+          type: 'profile_approved',
+          title,
+          message,
+          relatedId: user._id,
+          relatedModel: 'User',
+          actionUrl,
+          metadata: {
+            verifiedAt: new Date(),
+            role: user.role,
+            isVerified: true
+          }
+        });
+        console.log(`[AdminController] Profile verified push notification dispatched to ${roleLabel} ${user._id}`);
+      } catch (notifErr) {
+        console.error('[AdminController] Failed to dispatch verification push notification:', notifErr.message);
+      }
+
       console.log('API Response: approveUser', { message: 'User approved' });
       res.json({ message: 'User approved' });
     } else {
@@ -555,6 +623,40 @@ const updateDocumentStatus = async (req, res) => {
     if (document) {
       document.status = status;
       await document.save();
+
+      // Dispatch Push Notification to the Document Owner
+      if (document.user) {
+        try {
+          const docUser = await User.findById(document.user);
+          if (docUser) {
+            const isApproved = status === 'verified' || status === 'approved';
+            const title = isApproved ? 'Document Verified ✅' : 'Document Status Updated';
+            const message = isApproved
+              ? `Your document "${document.name || 'Verification Document'}" has been approved and verified by admin.`
+              : `Your document "${document.name || 'Verification Document'}" status was updated to ${status}.`;
+            const actionUrl = docUser.role === 'employer' ? '/(employer)/profile' : '/(worker)/profile';
+
+            await notificationService.createAndSend({
+              userId: docUser._id,
+              userRole: docUser.role,
+              type: isApproved ? 'document_verified' : 'document_rejected',
+              title,
+              message,
+              relatedId: document._id,
+              relatedModel: 'Document',
+              actionUrl,
+              metadata: {
+                documentId: document._id,
+                status
+              }
+            });
+            console.log(`[AdminController] Document status push notification sent to user ${docUser._id}`);
+          }
+        } catch (docNotifErr) {
+          console.error('[AdminController] Failed to notify document status update:', docNotifErr.message);
+        }
+      }
+
       console.log('API Response: updateDocumentStatus', { message: 'Document status updated' });
       res.json({ message: 'Document status updated' });
     } else {

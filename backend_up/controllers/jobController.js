@@ -7,7 +7,7 @@ const whatsappService = require('../services/whatsappService');
 const recommendationService = require('../services/recommendationService');
 const { geocodeAddress } = require('../services/geolocationService');
 const { getIo } = require('../socket');
-const { getLocale } = require('../utils');
+const { getLocale, escapeRegex } = require('../utils');
 const { translateJob } = require('../services/translationService');
 const { JOB_STATUSES, JOB_WORKER_STATUSES, APPLICATION_STATUSES } = require('../constants/statusEnums');
 const { logActivity } = require('../services/activityService');
@@ -29,10 +29,24 @@ const createJob = async (req, res) => {
     workerType,
   } = req.body;
 
+  let jobCity = location.city || '';
+  let jobState = location.state || '';
+  if (!jobCity && location.address) {
+    const parts = location.address.split(',').map(p => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      jobCity = parts[0];
+      jobState = parts[1];
+    } else if (parts.length === 1) {
+      jobCity = parts[0];
+    }
+  }
+
   const jobLocation = {
     address: location.address,
     type: 'Point',
     coordinates: [location.longitude, location.latitude],
+    city: jobCity,
+    state: jobState,
   };
 
   const Subscription = require('../models/Subscription');
@@ -142,7 +156,7 @@ const getJobs = async (req, res) => {
   };
 
   if (keyword) {
-    query.title = { $regex: keyword, $options: 'i' };
+    query.title = { $regex: escapeRegex(keyword), $options: 'i' };
   }
 
   if (skills) {
@@ -188,7 +202,7 @@ const getJobs = async (req, res) => {
       };
     } else {
       // Fallback to regex search if geocoding fails
-      query['location.address'] = { $regex: location, $options: 'i' };
+      query['location.address'] = { $regex: escapeRegex(location), $options: 'i' };
     }
   }
 
@@ -222,22 +236,66 @@ const getJobs = async (req, res) => {
 const getJobById = async (req, res) => {
   const job = await Job.findById(req.params.id)
     .populate('employer', 'name companyName businessType rating companyDetails')
-    .populate('workers.workerId', 'name email mobile location locationName rating profilePicture')
-    .populate('applicants', 'name email availability rating profilePicture');
+    .populate('workers.workerId', 'name location locationName rating profilePicture')
+    .populate('applicants', 'name availability rating profilePicture');
 
   if (job) {
+    let jobObj = job.toObject ? job.toObject() : { ...job };
+
+    const isOwner = req.user && jobObj.employer && (
+      (jobObj.employer._id && req.user._id.toString() === jobObj.employer._id.toString()) ||
+      req.user._id.toString() === jobObj.employer.toString()
+    );
+    const isAdmin = req.user && req.user.role === 'admin';
+    const isOwnerOrAdmin = Boolean(isOwner || isAdmin);
+
     if (req.user) {
       const application = await Application.findOne({ job: req.params.id, worker: req.user._id });
       if (application) {
-        job._doc.userApplicationStatus = application.status;
+        jobObj.userApplicationStatus = application.status;
+      }
+    }
+
+    // If requester is not the employer owner or admin, sanitize private details
+    if (!isOwnerOrAdmin) {
+      // Hide applicants list completely from unauthenticated visitors & non-owner users
+      jobObj.applicants = [];
+
+      // For workers list: only keep the logged-in worker if they are one of the assigned workers
+      if (req.user && req.user.role === 'worker') {
+        jobObj.workers = (jobObj.workers || []).filter(
+          w => w.workerId && (
+            (w.workerId._id && w.workerId._id.toString() === req.user._id.toString()) ||
+            w.workerId.toString() === req.user._id.toString()
+          )
+        );
+      } else {
+        jobObj.workers = [];
+      }
+
+      // Sanitize employer private contact details (phone, email, identity documents)
+      if (jobObj.employer && jobObj.employer.companyDetails) {
+        const safeCompanyDetails = { ...(jobObj.employer.companyDetails || {}) };
+        if (safeCompanyDetails.contactPerson) {
+          safeCompanyDetails.contactPerson = {
+            name: safeCompanyDetails.contactPerson.name || '',
+            designation: safeCompanyDetails.contactPerson.designation || ''
+            // phone and email are omitted for privacy
+          };
+        }
+        delete safeCompanyDetails.documents;
+        delete safeCompanyDetails.panCard;
+        delete safeCompanyDetails.gstCertificate;
+
+        jobObj.employer.companyDetails = safeCompanyDetails;
       }
     }
 
     // Translation support
     const locale = getLocale(req);
-    let translatedJob = job;
+    let translatedJob = jobObj;
     if (locale !== 'en') {
-      translatedJob = await translateJob(job, locale);
+      translatedJob = await translateJob(jobObj, locale);
     }
 
     res.json(translatedJob);
@@ -355,8 +413,12 @@ const updateJob = async (req, res) => {
         job.location = newLocation;
       }
       job.workType = req.body.workType || job.workType;
-      job.otpVerificationRequired = req.body.otpVerificationRequired;
-      job.geoTaggingRequired = req.body.geoTaggingRequired;
+      if (req.body.otpVerificationRequired !== undefined) {
+        job.otpVerificationRequired = Boolean(req.body.otpVerificationRequired);
+      }
+      if (req.body.geoTaggingRequired !== undefined) {
+        job.geoTaggingRequired = Boolean(req.body.geoTaggingRequired);
+      }
       job.totalOpenings = req.body.totalOpenings || job.totalOpenings;
       job.minExperience = req.body.minExperience || job.minExperience;
       job.maxExperience = req.body.maxExperience || job.maxExperience;
@@ -819,11 +881,25 @@ const updateJobLocation = async (req, res) => {
       return res.status(403).json({ message: 'Location change limit reached. You cannot change job location anymore with your current plan.' });
     }
 
+    let updateCity = location.city || '';
+    let updateState = location.state || '';
+    if (!updateCity && location.address) {
+      const parts = location.address.split(',').map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        updateCity = parts[0];
+        updateState = parts[1];
+      } else if (parts.length === 1) {
+        updateCity = parts[0];
+      }
+    }
+
     // Update location
     job.location = {
       address: location.address,
       type: 'Point',
-      coordinates: [location.longitude, location.latitude]
+      coordinates: [location.longitude, location.latitude],
+      city: updateCity,
+      state: updateState
     };
 
     await job.save();

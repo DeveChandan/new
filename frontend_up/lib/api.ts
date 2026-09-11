@@ -216,12 +216,26 @@ export class APIClient {
     password?: string
     role: "worker" | "employer"
     mobile: string
+    profilePicture?: string
     skills?: string[]
     companyName?: string
     workerType?: string[]
     isFresher?: boolean
     experience?: number
     gender?: string
+    locationName?: string
+    city?: string
+    state?: string
+    location?: {
+      type: "Point"
+      coordinates: [number, number]
+    }
+    expectedSalary?: {
+      min: number
+      max: number
+      currency: string
+      period: string
+    }
   }) {
     return this.request("/users/register-initiate", {
       method: "POST",
@@ -713,9 +727,11 @@ export class APIClient {
     userIds: string[];
     title: string;
     message: string;
+    type?: string;
     actionUrl?: string; // Optional action URL
     channels: {
       inApp: boolean;
+      push?: boolean;
       whatsApp: boolean;
     };
   }) {

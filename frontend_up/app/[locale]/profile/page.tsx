@@ -964,7 +964,7 @@ export default function ProfilePage() {
                           <SelectContent className="rounded-2xl border-border/50 shadow-xl">
                             {Object.keys(workerTypeSkills).map((type) => (
                               <SelectItem key={type} value={type} className="rounded-xl my-1">
-                                {tWT(type)}
+                                {tWT.has(type) ? tWT(type) : type}
                               </SelectItem>
                             ))}
                           </SelectContent>
